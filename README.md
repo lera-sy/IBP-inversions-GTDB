@@ -12,8 +12,8 @@ It runs in parallel to the team run (`Integrated-Bioinformatics-Project-2026`) s
 | 1 | Lock definitions (`config/config.yaml`) | answered 21 Oct, see `docs/decisions.md` |
 | 2 | GTDB species selection | done: 80 species, 3,987 chromosomes |
 | 3 | Null model and detectability | 3A geometry done; S0 needs Phase 5 sizes |
-| 4 | Pilot: 3 contrasting species + *B. pertussis* | running |
-| 5 | Full run | to do |
+| 4 | Pilot: 3 contrasting species + *B. pertussis* | done, see `docs/decisions.md` |
+| 5 | Full run | callers done (80 species); loci step built |
 | 6 | Validation and locus tiers | to do |
 | 7 | Statistics and comparison with the team run | to do |
 
@@ -94,6 +94,14 @@ PYTHONPATH=src python -m ibp.pilot.report --module5-root $VSC_SCRATCH/IBP-main/m
     --species escherichia_coli_3697165 vibrio_cholerae_621645 \
               staphylococcus_aureus_1027105 bordetella_pertussis_306945 \
     --out results/pilot
+```
+
+### Phase 5: callers on all species, then loci
+
+```bash
+sbatch --account=lp_edu_large_omics hpc/run_callers.slurm
+# when finished:
+bash hpc/build_loci.sh      # writes results/loci/selected_50_v1/
 ```
 
 Exact commands for later phases are added here as each phase is built.
