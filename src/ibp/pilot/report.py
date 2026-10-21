@@ -142,6 +142,9 @@ def caller_summary(species, caller, comps, calls, floor):
            "calls": len(calls)}
     if len(calls):
         length = calls["reported_length_bp"].astype(float)
+        ref_len = calls["query_assembly"].map(dict(zip(comps["query"], comps["ref_length"]))).astype(float)
+        row["calls_longer_arc"] = int((length > ref_len / 2).sum())
+        length = np.minimum(length, ref_len - length)  # shorter-arc rule for every caller
         row["calls_ge_floor"] = int((length >= floor).sum())
         row["calls_per_success"] = round(len(calls) / ok, 2) if ok else np.nan
         row["median_call_kb"] = round(float(length.median()) / 1000, 1)
@@ -168,17 +171,24 @@ def locus_summary(species, leen, syri, comps, floor, tolerance):
             size = span(a, b, length)
             match = False
             for _, c in s.iterrows():
-                if (circ(a, int(c["ref_start_0"]), length) <= tolerance
-                        and circ(b, int(c["ref_end_0"]), length) <= tolerance):
+                # Unordered breakpoints: SyRI may report the other arc of the
+                # circle, which has the same two breakpoints in swapped order.
+                x, y = int(c["ref_start_0"]), int(c["ref_end_0"])
+                same = circ(a, x, length) <= tolerance and circ(b, y, length) <= tolerance
+                swapped = circ(a, y, length) <= tolerance and circ(b, x, length) <= tolerance
+                if same or swapped:
                     match = True
                     break
-            rows.append({"query": query, "n_calls": n, "size": size, "syri_match": match})
+            # Shorter-arc rule applied to the merged locus as well.
+            rows.append({"query": query, "n_calls": n, "size": min(size, length - size),
+                         "outer_span": size, "syri_match": match})
     loci = pd.DataFrame(rows)
     big = loci[loci["size"] >= floor]
     return {"species": species, "leen_calls": len(leen), "leen_loci": len(loci),
             "calls_per_locus": round(len(leen) / len(loci), 2) if len(loci) else np.nan,
             "loci_multi_call": int((loci["n_calls"] > 1).sum()),
             "loci_ge_floor": len(big),
+            "loci_outer_span_gt_half": int((loci["outer_span"] > loci["size"]).sum()),
             "median_locus_kb": round(float(big["size"].median()) / 1000, 1) if len(big) else np.nan,
             "max_locus_kb": round(float(big["size"].max()) / 1000, 1) if len(big) else np.nan,
             "loci_matched_by_syri": int(big["syri_match"].sum()) if len(big) else 0,
