@@ -68,9 +68,9 @@ definitions:
 # ---------------------------------------------------------------------------
 selection:
   gtdb_release: r232
-  gtdb_metadata: null          # path on the VSC, e.g. $VSC_DATA/gtdb/bac120_metadata_r232.tsv.gz
-  gtdb_tree: null              # e.g. $VSC_DATA/gtdb/bac120_r232.tree
-  include_archaea: true        # ar53 files needed if any archaea pass
+  gtdb_metadata: /data/leuven/381/vsc38158/gtdb/r232/bac120_metadata_r232.tsv.gz
+  gtdb_tree: /data/leuven/381/vsc38158/gtdb/r232/bac120_r232.tree
+  include_archaea: false       # no ar53 files on the VSC; bacteria only
   assembly_level: complete
   source: refseq
   checkm2_completeness_min: 95.0

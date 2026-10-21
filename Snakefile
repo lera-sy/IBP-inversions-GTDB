@@ -25,7 +25,8 @@ RUN_PROCESSED_DIR = (
 )
 REFERENCE_DIR = DOWNLOAD_DIR + "/reference_selection/{species}/" + COHORT
 PREPARED_DIR = DOWNLOAD_DIR + "/prepared/{species}/" + COHORT
-SPECIES_TABLE = "config/species.tsv"
+# Written by Module 1 (GTDB selection); taxid = GTDB species key, not an NCBI TaxID.
+SPECIES_TABLE = "data/processed/species.tsv"
 # Normal runs use Module 1's full multi-species assembly selection.
 # Only an explicitly configured local integration test filters downstream assemblies.
 LOCAL_SELECTION_TEST = "run_assembly_limit" in config
@@ -79,6 +80,7 @@ rule all:
     input:
         "data/processed/selected_assemblies.tsv",
         "data/processed/selection_summary.tsv",
+        "data/processed/species.tree",
         DOWNLOAD_DIR + "/genomes",
         DOWNLOAD_DIR + "/sequence_reports",
         f"{RUN_PROCESSED_DIR}/genome_qc.tsv",

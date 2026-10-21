@@ -52,7 +52,7 @@ class ProductionStudyTests(unittest.TestCase):
             pd.DataFrame([
                 {"taxid": "100", "species_id": "species_a"},
                 {"taxid": "200", "species_id": "species_b"},
-            ]).to_csv(repo / "config/species.tsv", sep="\t", index=False)
+            ]).to_csv(repo / "data/processed/species.tsv", sep="\t", index=False)
             config = repo / "config/study.yaml"
             config.write_text(yaml.safe_dump({"cohort": "study", "species": ["species_a", "species_b"],
                                               "run_assembly_limit": 1}), encoding="utf-8")

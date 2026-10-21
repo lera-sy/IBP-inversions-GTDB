@@ -88,7 +88,7 @@ def module5_complete_targets(wc):
         names = pd.read_csv(SPECIES_TABLE, sep="\t", dtype=str)
         by_taxid = names.set_index("taxid")
         if by_taxid.index.duplicated().any() or set(taxids) - set(by_taxid.index):
-            raise ValueError("Missing or duplicate TaxIDs in config/species.tsv")
+            raise ValueError("Missing or duplicate TaxIDs in data/processed/species.tsv")
         species_ids = by_taxid.loc[taxids, "species_id"].tolist()
         return [f"{RESULTS}/{species}/{COHORT}/comparisons.tsv" for species in species_ids]
     return [

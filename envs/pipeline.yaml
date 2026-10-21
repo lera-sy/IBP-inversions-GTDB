@@ -17,3 +17,4 @@ dependencies:
   - matplotlib
   - ruff=0.16.9
   - snakemake-executor-plugin-slurm
+  - dendropy

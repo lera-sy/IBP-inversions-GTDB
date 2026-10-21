@@ -9,8 +9,8 @@ It runs in parallel to the team run (`Integrated-Bioinformatics-Project-2026`) s
 | Phase | What | Status |
 |---|---|---|
 | 0 | Setup: repo, envs, config, dry run | done |
-| 1 | Lock definitions (`config/config.yaml`) | proposed, to confirm |
-| 2 | GTDB species selection | to do |
+| 1 | Lock definitions (`config/config.yaml`) | answered 21 Oct, see `docs/decisions.md` |
+| 2 | GTDB species selection | built, to run |
 | 3 | Null model and detectability | to do |
 | 4 | Pilot: 3 contrasting species + *B. pertussis* | to do |
 | 5 | Full run | to do |
@@ -69,4 +69,20 @@ export SBATCH_ACCOUNT=<your lp_ account>
 snakemake --profile profiles/slurm -n      # always dry run first
 ```
 
-Exact commands for each phase are added to this README as the phase is built.
+### Phase 2: GTDB selection
+
+Needs internet (NCBI metadata) and about 16 GB memory; 2 cores are enough.
+
+```bash
+conda activate ibp-pipeline
+cd $VSC_DATA/IBP-inversions-GTDB
+snakemake -n --cores 2 data/processed/selected_assemblies.tsv data/processed/species.tree
+snakemake --cores 2 data/processed/selected_assemblies.tsv data/processed/species.tree
+```
+
+Outputs in `data/processed/`: `selected_assemblies.tsv`, `species.tsv`, `species.tree`,
+`selection_steps.tsv` (genomes left after each filter), `selection_thresholds.tsv`
+(species kept at 5/10/20/30/50 genomes), `selection_summary.tsv` (per species),
+`species_not_in_tree.tsv`.
+
+Exact commands for later phases are added here as each phase is built.

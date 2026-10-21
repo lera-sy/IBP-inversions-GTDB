@@ -37,4 +37,5 @@ jobs:
 
       - name: Dry-run Snakemake workflow
         shell: bash -el {0}
-        run: snakemake -n --cores 1
+        # The full DAG needs the GTDB files on the VSC; CI checks the caller module on the mock package.
+        run: snakemake --snakefile workflow/rules/module5.smk --configfile config/runs/module5_mock.yaml -n --cores 1 module5_complete

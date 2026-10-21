@@ -5,6 +5,10 @@ Newest first.
 
 | Date | Decision | Reason |
 |---|---|---|
+| 2026-10-21 | Module 1 rebuilt: GTDB r232 filters (RefSeq, complete, not MAG, CheckM2) joined with the NCBI long-read / de novo filter; one genome per BioSample per GTDB species; >= 50 genomes, 50 sampled (seed 42). | GTDB decides species; the long-read / de novo filter is kept because reference-guided or short-read assemblies can hide or fake inversions. |
+| 2026-10-21 | Species key = number in the GTDB representative accession (RS_GCF_000005845.2 -> 5845), used where downstream code says "taxid". Species folder = GTDB name + key, e.g. `escherichia_coli_5845`. | Downstream modules need an integer key; this one is unique and ties each species to its tree tip. NCBI TaxID kept only as a reference column. |
+| 2026-10-21 | GTDB and NCBI joined on accession without version; the current NCBI version is downloaded. | GTDB r232 can list an older version of the same assembly. |
+| 2026-10-21 | Bacteria only (include_archaea: false). | No ar53 files on the VSC. |
 | 2026-10-21 | Pipeline is fully GTDB-driven: GTDB r232 decides species, genome list, quality and tree; NCBI is used only to download the FASTA files and sequence reports by accession. Team's NCBI TaxID selection (module 1) is replaced in Phase 2. | Independent pipeline; avoids split and pooled species. GTDB does not host sequences for all genomes. |
 | 2026-10-21 | Main genome size = whole genome length (GTDB `genome_size`); analysed chromosome length is the sensitivity check. | The research question is about genome size. The size cap still uses chromosome length inside the null model. |
 | 2026-10-21 | Minimum loci per species: 1 for the mixed model, 3 for PGLS on species means; dropped species are listed. | The mixed model weighs species by how many loci they have; a mean from 1-2 loci is too noisy for PGLS. |

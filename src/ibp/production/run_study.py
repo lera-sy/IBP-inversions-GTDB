@@ -39,15 +39,15 @@ def validate_name(value, label):
 def get_species(repo, configuration):
     """Use existing Module 1 selection; never silently widen the species set."""
     selected = pd.read_csv(repo / "data/processed/selected_assemblies.tsv", sep="\t", dtype=str)
-    species = pd.read_csv(repo / "config/species.tsv", sep="\t", dtype=str)
+    species = pd.read_csv(repo / "data/processed/species.tsv", sep="\t", dtype=str)
     if selected.empty or "Organism Taxonomic ID" not in selected.columns:
         raise ValueError("Missing or empty Module 1 species selection")
     if species[["taxid", "species_id"]].isna().any().any() or species["taxid"].duplicated().any():
-        raise ValueError("Malformed/duplicate species IDs in config/species.tsv")
+        raise ValueError("Malformed/duplicate species IDs in data/processed/species.tsv")
     by_taxid = dict(zip(species["taxid"], species["species_id"]))
     by_id = dict(zip(species["species_id"], species["taxid"]))
     if len(by_id) != len(by_taxid):
-        raise ValueError("Duplicate species IDs in config/species.tsv")
+        raise ValueError("Duplicate species IDs in data/processed/species.tsv")
     available = set(selected["Organism Taxonomic ID"].dropna())
     requested = configuration.get("species", sorted(available))
     if not isinstance(requested, list) or not requested:
@@ -58,7 +58,7 @@ def get_species(repo, configuration):
     for name in requested:
         taxid = by_id.get(str(name), str(name))
         if taxid not in by_taxid:
-            raise ValueError(f"TaxID {taxid} is missing from config/species.tsv")
+            raise ValueError(f"TaxID {taxid} is missing from data/processed/species.tsv")
         if taxid not in available:
             raise ValueError(f"Requested species {name} is absent from Module 1 selected assemblies")
         species_id = validate_name(by_taxid[taxid], "species_id")

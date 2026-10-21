@@ -17,7 +17,6 @@ chromosome length used in the final model has to come from the sequences later.
 
 import argparse
 
-import dendropy
 import pandas as pd
 
 RANKS = ["domain", "phylum", "class", "order", "family", "genus", "species"]
@@ -145,6 +144,8 @@ def threshold_table(species):
 
 def prune_tree(tree_path, species, out_path):
     """Prune the GTDB tree to one tip per species and rename tips to species names."""
+    import dendropy  # imported here so the selection step does not need it
+
     tree = dendropy.Tree.get(path=tree_path, schema="newick", preserve_underscores=True)
     print(f"GTDB tree loaded: {len(tree.taxon_namespace):,} tips.")
     labels = dict(zip(species["gtdb_representative"], species["tree_label"]))

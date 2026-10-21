@@ -1,9 +1,13 @@
-# Module 1 — NCBI metadata retrieval, filtering, and species/assembly selection.
-# Scientific scripts and selection thresholds are unchanged.
+# Module 1 — selection. GTDB is the only source of species identity.
+# NCBI metadata is fetched only for sequencing technology and assembly method
+# (long-read / de novo filter); GTDB decides species, quality and tree tip.
 
-MIN_ASSEMBLIES = 50
-ASSEMBLIES_PER_TAXON = 50
-RANDOM_SEED = 42
+SELECTION = config["selection"]
+GTDB_METADATA = os.path.expandvars(str(SELECTION.get("gtdb_metadata") or ""))
+GTDB_TREE = os.path.expandvars(str(SELECTION.get("gtdb_tree") or ""))
+if not GTDB_METADATA or not GTDB_TREE:
+    raise ValueError("Set selection.gtdb_metadata and selection.gtdb_tree in config/config.yaml")
+NCBI_TAXA = ["Bacteria", "Archaea"] if SELECTION.get("include_archaea") else ["Bacteria"]
 
 FIELDS="accession,organism-name,organism-tax-id,assminfo-level,assminfo-sequencing-tech,assminfo-assembly-method,assmstats-total-sequence-len,assmstats-number-of-contigs,assmstats-contig-n50,assmstats-scaffold-n50,assminfo-biosample-submission-date,assminfo-biosample-accession,assminfo-biosample-bioproject-accession"
 FLAGS="--assembly-level complete --assembly-source refseq --mag exclude --as-json-lines"
@@ -15,16 +19,21 @@ rule fetch_metadata:
     params:
         raw_dir = "data/raw",
         fields = FIELDS,
-        flags = FLAGS
+        flags = FLAGS,
+        taxa = " ".join(NCBI_TAXA)
     shell:
         """
         mkdir -p {params.raw_dir}
 
-        datasets summary genome taxon "Bacteria" {params.flags} > {params.raw_dir}/bacteria_metadata.jsonl
-        dataformat tsv genome --inputfile {params.raw_dir}/bacteria_metadata.jsonl --fields "{params.fields}" > {output}
-
-        datasets summary genome taxon "Archaea" {params.flags} > {params.raw_dir}/archaea_metadata.jsonl
-        dataformat tsv genome --inputfile {params.raw_dir}/archaea_metadata.jsonl --fields "{params.fields}" | tail -n +2 >> {output}
+        echo -n > {output}
+        for taxon in {params.taxa}; do
+            datasets summary genome taxon "$taxon" {params.flags} > {params.raw_dir}/${{taxon}}_metadata.jsonl
+            if [ -s {output} ]; then
+                dataformat tsv genome --inputfile {params.raw_dir}/${{taxon}}_metadata.jsonl --fields "{params.fields}" | tail -n +2 >> {output}
+            else
+                dataformat tsv genome --inputfile {params.raw_dir}/${{taxon}}_metadata.jsonl --fields "{params.fields}" > {output}
+            fi
+        done
 
         #Test if the output file is not empty
         n=$(( $(wc -l < {output}) - 1 ))
@@ -56,24 +65,50 @@ rule filter_assemblies:
         fi
         """
 
-rule select_multiassembly_species:
+rule gtdb_select:
+    # GTDB decides species, quality and tree tip; NCBI candidates only add the
+    # long-read / de novo filter. See src/ibp/module1/gtdb_select.py.
     input:
-        candidates = "data/processed/candidates.tsv"
+        candidates = "data/processed/candidates.tsv",
+        gtdb = GTDB_METADATA,
+        code = "src/ibp/module1/gtdb_select.py"
     output:
         selected = "data/processed/selected_assemblies.tsv",
-        summary = "data/processed/selection_summary.tsv"
+        species = "data/processed/species.tsv",
+        summary = "data/processed/selection_summary.tsv",
+        steps = "data/processed/selection_steps.tsv",
+        thresholds = "data/processed/selection_thresholds.tsv"
     params:
-        min_assemblies = MIN_ASSEMBLIES,
-        assemblies_per_taxon = ASSEMBLIES_PER_TAXON,
-        seed = RANDOM_SEED
+        completeness = SELECTION["checkm2_completeness_min"],
+        contamination = SELECTION["checkm2_contamination_max"],
+        min_genomes = SELECTION["min_genomes_per_species"],
+        max_genomes = SELECTION["max_genomes_per_species"],
+        seed = SELECTION["seed"]
+    resources:
+        mem_mb = 16000
     shell:
         """
-        python -u src/ibp/module1/select_multiassembly_species.py -i {input.candidates} -o {output.selected} -s {output.summary} -m {params.min_assemblies} -n {params.assemblies_per_taxon} --seed {params.seed}
-        
-        # Test if the output files are not empty
-        n=$(( $(wc -l < {output.selected}) - 1 ))
-        if [ "$n" -le 0 ]; then
-            echo "Error: {output.selected} is empty. No selected assemblies were found."
-            exit 1
-        fi
+        PYTHONPATH=src python -u -m ibp.module1.gtdb_select \
+            --gtdb-metadata {input.gtdb:q} --candidates {input.candidates:q} \
+            --selected {output.selected:q} --species {output.species:q} \
+            --summary {output.summary:q} --steps {output.steps:q} --thresholds {output.thresholds:q} \
+            --min-completeness {params.completeness} --max-contamination {params.contamination} \
+            --min-genomes {params.min_genomes} --max-genomes {params.max_genomes} --seed {params.seed}
+        """
+
+
+rule gtdb_tree:
+    input:
+        species = "data/processed/species.tsv",
+        tree = GTDB_TREE,
+        code = "src/ibp/module1/gtdb_tree.py"
+    output:
+        tree = "data/processed/species.tree",
+        missing = "data/processed/species_not_in_tree.tsv"
+    resources:
+        mem_mb = 16000
+    shell:
+        """
+        PYTHONPATH=src python -u -m ibp.module1.gtdb_tree --tree {input.tree:q} \
+            --species {input.species:q} --out {output.tree:q} --missing {output.missing:q}
         """
