@@ -1,4 +1,8 @@
 # Phase 4 pilot: callers on 4 contrasting species (tuning set).
 # species: folder IDs from data/processed/species.tsv (filled in after the
 # preparation job; GTDB species name + representative key).
-species: []   # e.g. ["escherichia_coli_<key>", "vibrio_cholerae_<key>", "staphylococcus_aureus_<key>", "bordetella_pertussis_<key>"]
+species:
+  - escherichia_coli_3697165        # diverse, large
+  - vibrio_cholerae_621645          # two chromosomes
+  - staphylococcus_aureus_1027105   # small genome
+  - bordetella_pertussis_306945     # known control (team pilot)

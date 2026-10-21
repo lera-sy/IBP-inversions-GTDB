@@ -5,6 +5,7 @@ Newest first.
 
 | Date | Decision | Reason |
 |---|---|---|
+| 2026-10-21 | Preparation run: 3,987 chromosomes normalized (3,934 circular, 53 linear), 80 species packages. Linear chromosomes are kept in the packages for now and excluded at the analysis step (shorter-arc rule does not apply to them). | config `exclude_linear_chromosomes: true`; the exclusion is applied when loci are built. |
 | 2026-10-21 | After the whitelist fix: 80 species at >= 50 (4,000 genomes, 7 phyla, 1.05-7.18 Mb); 201 at >= 20 (11 phyla, 0.81-9.14 Mb). First full run uses min 50; a separate min-20 run follows in its own folders. | The 50 run was already past download and QC; 20 widens the size range and doubles the species, so it is run next and compared. |
 | 2026-10-21 | First selection run: 76 GTDB species at >= 50 genomes (3,800 genomes, 7 phyla, 1.05-7.18 Mb median size); 178 species at >= 20. Whitelist extended with Autocycler, Trycycler, Dragonflye, Hybracter, SMRT Analysis/SMRT Link Microbial Assembly. Left out: SOAPdenovo, SPAdes, 'various', unknown pipelines. | 12,076 genomes were 'unknown method'; the top ones are long-read de novo tools. Short-read assemblers and unclear labels stay out. |
 | 2026-10-21 | Module 1 rebuilt: GTDB r232 filters (RefSeq, complete, not MAG, CheckM2) joined with the NCBI long-read / de novo filter; one genome per BioSample per GTDB species; >= 50 genomes, 50 sampled (seed 42). | GTDB decides species; the long-read / de novo filter is kept because reference-guided or short-read assemblies can hide or fake inversions. |
