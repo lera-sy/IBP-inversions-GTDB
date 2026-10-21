@@ -32,17 +32,25 @@ definitions:
     main: kb_log10
     sensitivity: percent_of_chromosome
   genome_size:
-    main: analysed_chromosome_length
-    sensitivity: whole_genome_length
+    main: whole_genome_length          # GTDB genome_size (total assembly length)
+    sensitivity: analysed_chromosome_length
   chromosomes:
     main: largest_only
     sensitivity: add_second_if_large   # threshold to decide in Phase 4
   min_loci_per_species:
-    main: 3
-    sensitivity: 1
+    mixed_model: 1             # every locus is a data point; the model weighs species itself
+    pgls_means: 3              # a species mean from 1-2 loci is too noisy
+    report_dropped: true       # list which species each rule drops
   model:
     main: phylogenetic_mixed_model     # on loci
     sensitivity: pgls_geometric_means  # species geometric means
+  # No 90/10 train/test split. The risk here is tuning definitions on the
+  # same data we test on, so the split is: pilot species + simulations
+  # (tuning) vs all other species (confirmation, config frozen first).
+  validation_split:
+    tuning_set: pilot_species_and_simulations
+    confirmation_set: all_other_species
+    robustness: leave_one_phylum_out
   null_slopes:
     S0: from_null_model                # Phase 3; slope 0 kept as an extra check
     S1: 1.0
@@ -67,7 +75,7 @@ selection:
   source: refseq
   checkm2_completeness_min: 95.0
   checkm2_contamination_max: 5.0
-  min_genomes_per_species: 20
+  min_genomes_per_species: 50   # may lower to 20 after Phase 2 counts (log it)
   max_genomes_per_species: 50
   seed: 42
   exclude_linear_chromosomes: true  # until a linear arc rule exists
