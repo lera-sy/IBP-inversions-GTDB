@@ -5,6 +5,7 @@ Newest first.
 
 | Date | Decision | Reason |
 |---|---|---|
+| 2026-10-21 | First selection run: 76 GTDB species at >= 50 genomes (3,800 genomes, 7 phyla, 1.05-7.18 Mb median size); 178 species at >= 20. Whitelist extended with Autocycler, Trycycler, Dragonflye, Hybracter, SMRT Analysis/SMRT Link Microbial Assembly. Left out: SOAPdenovo, SPAdes, 'various', unknown pipelines. | 12,076 genomes were 'unknown method'; the top ones are long-read de novo tools. Short-read assemblers and unclear labels stay out. |
 | 2026-10-21 | Module 1 rebuilt: GTDB r232 filters (RefSeq, complete, not MAG, CheckM2) joined with the NCBI long-read / de novo filter; one genome per BioSample per GTDB species; >= 50 genomes, 50 sampled (seed 42). | GTDB decides species; the long-read / de novo filter is kept because reference-guided or short-read assemblies can hide or fake inversions. |
 | 2026-10-21 | Species key = number in the GTDB representative accession (RS_GCF_000005845.2 -> 5845), used where downstream code says "taxid". Species folder = GTDB name + key, e.g. `escherichia_coli_5845`. | Downstream modules need an integer key; this one is unique and ties each species to its tree tip. NCBI TaxID kept only as a reference column. |
 | 2026-10-21 | GTDB and NCBI joined on accession without version; the current NCBI version is downloaded. | GTDB r232 can list an older version of the same assembly. |

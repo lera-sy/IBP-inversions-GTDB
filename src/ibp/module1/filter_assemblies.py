@@ -54,6 +54,12 @@ DENOVO_ASSEMBLERS = (
     r"flye|canu|hgap|wtdbg|miniasm|raven"
     r"|hifiasm|peregrine|shasta|nextdenovo|necat"
     r"|falcon|unicycler"
+    # Added 2026-10-21 (rerun): long-read de novo tools found among the
+    # "unknown" methods. Autocycler/Trycycler build consensus from several
+    # de novo assemblies; SMRT Analysis/SMRT Link "Microbial Assembly" is
+    # PacBio's HGAP-based de novo assembler.
+    r"|autocycler|trycycler|dragonflye|hybracter"
+    r"|smrt[\s_-]*(?:analysis|link|portal)|microbial[\s_-]*assembl|pb[\s_-]*assembly"
 )
 
 # Reference guided / scaffolding keywords --> blacklist
@@ -89,4 +95,4 @@ print(f"  {args.unknown}  ({len(unknown):,} rows)")
 print (f"  {args.reference_guided} ({len(ref_guided):,} rows)")
 if len(unknown):
     print("\nTop unrecognized assembly-method values (check these):")
-    print(unknown[method].value_counts().head(10).to_string())
+    print(unknown[method].value_counts().head(40).to_string())
