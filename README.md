@@ -10,9 +10,9 @@ It runs in parallel to the team run (`Integrated-Bioinformatics-Project-2026`) s
 |---|---|---|
 | 0 | Setup: repo, envs, config, dry run | done |
 | 1 | Lock definitions (`config/config.yaml`) | answered 21 Oct, see `docs/decisions.md` |
-| 2 | GTDB species selection | built, to run |
-| 3 | Null model and detectability | to do |
-| 4 | Pilot: 3 contrasting species + *B. pertussis* | to do |
+| 2 | GTDB species selection | done: 80 species, 3,987 chromosomes |
+| 3 | Null model and detectability | 3A geometry done; S0 needs Phase 5 sizes |
+| 4 | Pilot: 3 contrasting species + *B. pertussis* | running |
 | 5 | Full run | to do |
 | 6 | Validation and locus tiers | to do |
 | 7 | Statistics and comparison with the team run | to do |
@@ -84,5 +84,16 @@ Outputs in `data/processed/`: `selected_assemblies.tsv`, `species.tsv`, `species
 `selection_steps.tsv` (genomes left after each filter), `selection_thresholds.tsv`
 (species kept at 5/10/20/30/50 genomes), `selection_summary.tsv` (per species),
 `species_not_in_tree.tsv`.
+
+### Phase 4: pilot (4 species)
+
+```bash
+sbatch --account=lp_edu_large_omics hpc/pilot_callers.slurm
+# when it has finished (seconds, login node is fine):
+PYTHONPATH=src python -m ibp.pilot.report --module5-root $VSC_SCRATCH/IBP-main/module5 \
+    --species escherichia_coli_3697165 vibrio_cholerae_621645 \
+              staphylococcus_aureus_1027105 bordetella_pertussis_306945 \
+    --out results/pilot
+```
 
 Exact commands for later phases are added here as each phase is built.
