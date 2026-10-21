@@ -48,7 +48,8 @@ rule fetch_metadata:
 
 rule filter_assemblies:
     input:
-        metadata = "data/raw/all_prokaryotes_metadata.tsv"
+        metadata = "data/raw/all_prokaryotes_metadata.tsv",
+        code = "src/ibp/module1/filter_assemblies.py"
     output:
         candidates = "data/processed/candidates.tsv",
         unknown = "data/processed/unknown.tsv",
