@@ -64,11 +64,21 @@ class LociTiersTest(unittest.TestCase):
             syri("q3", 100000, 900000, "s3"),                        # folded to 900000-100000 -> low
         ])
         calls = prepare_calls(raw, L, 6000)
-        loci = build_loci(calls[calls.kept], L, 5000)
+        with tempfile.TemporaryDirectory() as tmp:
+            pafs = {}
+            for q, blocks in {"q1": [(100000, 300000)], "q2": [(100500, 300500)], "q3": []}.items():
+                pafs[q] = Path(tmp) / f"{q}.paf"
+                pafs[q].write_text("".join(
+                    f"q\t{L}\t0\t1\t-\tr\t{L}\t{a}\t{b}\t{b - a}\t{b - a}\t60\n" for a, b in blocks))
+            loci = build_loci(calls[calls.kept], L, 5000, pafs)
         tiers = dict(zip(loci["locus"], loci["tier"]))
         self.assertEqual(tiers["q1:1"], "high")
         self.assertEqual(loci.set_index("locus").loc["q1:1", "n_calls"], 3)
         self.assertIn("medium", tiers.values())
+        # q2 Leen-only locus backed by the raw alignment -> medium; q3 SyRI-only -> low
+        by_q = loci.set_index("query_assembly")
+        self.assertEqual(loci[(loci.query_assembly == "q2") & (loci.start == 100500)].tier.iloc[0], "medium")
+        self.assertEqual(by_q.loc["q3", "tier"], "low")
         fams, loci = build_families(loci, L, 5000)
         big = fams[fams["n_genomes"] == 2].iloc[0]
         self.assertEqual(big["tier"], "high")       # best tier of its loci
@@ -98,6 +108,8 @@ class ProcessSpeciesTest(unittest.TestCase):
             write("syri", "q1", "success", [syri("q1", 101000, 299000, "s1")])
             write("leen", "q2", "unsupported", [])
             write("syri", "q2", "success", [syri("q2", 101000, 299000, "s2")])
+            (tmp / "m5/sp_1/c1/syri/q1/alignment.paf").write_text(
+                f"q1\t{L}\t0\t1\t-\tref\t{L}\t101000\t299000\t198000\t198000\t60\n")
             summary, comps, calls, loci, fams = process_species(tmp / "m5", tmp / "prepared", "sp_1", "c1",
                                                                 6000, 5000, 0.2)
             self.assertEqual(summary["excluded"], "")
@@ -107,3 +119,13 @@ class ProcessSpeciesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RawSupportTest(unittest.TestCase):
+    def test_inside_and_other_arc(self):
+        from ibp.loci.build import raw_support
+        self.assertEqual(raw_support(100_000, 300_000, [[100_000, 300_000]], L), (True, 1.0))
+        # inversion seen the other way round: everything except the locus is reverse
+        self.assertEqual(raw_support(100_000, 300_000, [[0, 100_000], [300_000, L]], L)[0], True)
+        self.assertEqual(raw_support(100_000, 300_000, [], L), (False, 0.0))
+        self.assertEqual(raw_support(100_000, 300_000, None, L)[0], None)

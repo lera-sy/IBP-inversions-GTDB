@@ -14,11 +14,20 @@ loci      Within one genome, calls from both callers whose reference intervals
           half the circle (`wide_locus`) takes its largest call as its size. Position class as the team: `local` if both outer
           breakpoints lie on one replication arm (origin at 0 after dnaapler,
           terminus at half the chromosome), else `spanning`.
-tiers     Per locus, provisional until the raw-alignment check exists:
-            high    both callers, with matching breakpoints (either order,
-                    within the tolerance, circular distance)
-            medium  both callers overlap, breakpoints do not match
-            low     one caller only
+tiers     Three lines of evidence per locus:
+            Leen     window-based caller
+            SyRI     minimap2 + SyRI caller
+            raw      the raw whole-chromosome alignment (SyRI's minimap2 PAF):
+                     >= 50% of the locus arc is covered by reverse-strand
+                     blocks (or, when the inversion was oriented the other
+                     way round the circle, >= 50% of the complementary arc is
+                     and < 50% of the locus is)
+          SyRI and raw share one alignment, so on their own they count as ONE
+          line; a locus needs Leen plus a second line to be trusted:
+            high    Leen + SyRI with matching breakpoints (either order,
+                    within the tolerance) + raw support
+            medium  Leen + (SyRI overlapping, or raw support), not high
+            low     everything else (one method, or SyRI + raw without Leen)
 families  Within a species, loci from different genomes with matching outer
           breakpoints (complete link) are one inversion family; each family is
           counted once per species. Family tier = best tier of its loci.
@@ -186,16 +195,65 @@ def prepare_calls(raw, length, floor_bp):
     return out
 
 
-def build_loci(calls, length, tolerance):
+def read_reverse_blocks(paf_path, min_len=1000, min_mapq=5):
+    """Merged reference intervals covered by reverse-strand alignment blocks."""
+    if paf_path is None or not Path(paf_path).is_file():
+        return None
+    blocks = []
+    with open(paf_path) as handle:
+        for line in handle:
+            f = line.split("\t")
+            if len(f) < 12 or f[4] != "-":
+                continue
+            t0, t1, alen, mapq = int(f[7]), int(f[8]), int(f[10]), int(f[11])
+            if alen >= min_len and mapq >= min_mapq:
+                blocks.append((t0, t1))
+    merged = []
+    for a, b in sorted(blocks):
+        if merged and a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return merged
+
+
+def covered_fraction(start, end, blocks, length):
+    pieces = linear_pieces([(start, end)], length)
+    total = sum(b - a for a, b in pieces)
+    if total <= 0:
+        return 0.0
+    hit = sum(max(0, min(b, d) - max(a, c)) for a, b in pieces for c, d in blocks)
+    return hit / total
+
+
+def raw_support(start, end, blocks, length):
+    """(supported, fraction of the locus arc covered by reverse blocks)."""
+    if blocks is None:
+        return None, np.nan
+    inside = covered_fraction(start, end, blocks, length)
+    outside = covered_fraction(end, start, blocks, length)
+    return bool(inside >= 0.5 or (outside >= 0.5 and inside < 0.5)), round(inside, 3)
+
+
+def build_loci(calls, length, tolerance, paf_paths=None):
+    """paf_paths: {query: path to SyRI's alignment.paf} for the raw-alignment check."""
     rows = []
+    paf_paths = paf_paths or {}
     for query, g in calls.groupby("query_assembly", sort=True):
+        blocks = read_reverse_blocks(paf_paths.get(query))
         g = g.reset_index(drop=True)
         for k, (a, b, members) in enumerate(group_overlapping(g["intervals"].tolist(), length)):
             m = g.loc[members]
             leen, syri = m[m["caller"] == "leen"], m[m["caller"] == "syri"]
             agree = any(same_breakpoints(x.start, x.end, y.start, y.end, length, tolerance)
                         for x in leen.itertuples() for y in syri.itertuples())
-            tier = "high" if agree else ("medium" if len(leen) and len(syri) else "low")
+            raw, raw_frac = raw_support(a, b, blocks, length)
+            if len(leen) and agree and raw:
+                tier = "high"
+            elif len(leen) and (len(syri) or raw):
+                tier = "medium"
+            else:
+                tier = "low"
             span = arc(a, b, length)
             largest = int(m["size_bp"].max())
             # A chain of overlapping calls can cover more than half the circle
@@ -207,7 +265,8 @@ def build_loci(calls, length, tolerance):
                          "size_bp": largest if wide else span,
                          "largest_call_bp": largest, "wide_locus": wide,
                          "n_calls": len(m), "n_leen": len(leen), "n_syri": len(syri),
-                         "breakpoints_agree": agree, "tier": tier,
+                         "breakpoints_agree": agree, "raw_support": raw, "raw_reverse_fraction": raw_frac,
+                         "tier": tier,
                          "position_class": position_class(a, b, length),
                          "leen_call_types": ",".join(sorted(set(leen["call_type"].dropna()))),
                          "call_ids": ",".join(m["call_id"])})
@@ -293,7 +352,9 @@ def process_species(module5_root, prepared_root, species, cohort, floor_bp, tole
         return summary, comps, empty, empty, empty
     raw = raw[raw["query_assembly"].isin(both)]
     calls = prepare_calls(raw, length, floor_bp)
-    loci = build_loci(calls[calls["kept"]], length, tolerance) if calls["kept"].any() else pd.DataFrame()
+    pafs = {q: Path(module5_root) / species / cohort / "syri" / q / "alignment.paf" for q in both}
+    loci = (build_loci(calls[calls["kept"]], length, tolerance, pafs)
+            if calls["kept"].any() else pd.DataFrame())
     families, loci = build_families(loci, length, tolerance)
     summary.update({"calls": len(calls), "calls_kept": int(calls["kept"].sum()), "loci": len(loci),
                     "families": len(families)})
@@ -353,6 +414,20 @@ def main():
         print(f"  excluded {r['species_id']}: {r['excluded']}")
     if len(fam):
         print(f"Calls kept (>= floor): {int(tables['calls']['kept'].sum()):,} of {len(tables['calls']):,}")
+        loc = tables["loci"]
+        combo = (np.where(loc["n_leen"] > 0, "Leen", "-") + " + "
+                 + np.where(loc["breakpoints_agree"], "SyRI(match)", np.where(loc["n_syri"] > 0, "SyRI(overlap)", "-"))
+                 + " + " + np.where(loc["raw_support"].fillna(False).astype(bool), "raw", "-"))
+        print("Loci by evidence (Leen + SyRI + raw alignment):")
+        print(pd.Series(combo).value_counts().to_string())
+        two = loc["n_leen"].gt(0) & loc["n_syri"].gt(0)
+        for label, mask in [("Leen + SyRI matching", two & loc["breakpoints_agree"]),
+                            ("Leen + SyRI overlapping only", two & ~loc["breakpoints_agree"]),
+                            ("Leen only", loc["n_leen"].gt(0) & loc["n_syri"].eq(0)),
+                            ("SyRI only", loc["n_leen"].eq(0))]:
+            sub = loc.loc[mask, "raw_support"].dropna().astype(bool)
+            if len(sub):
+                print(f"  raw alignment supports {sub.mean():.0%} of '{label}' loci (n = {len(sub)})")
         print(f"Loci: {len(tables['loci']):,} ({int(tables['loci']['wide_locus'].sum())} wide, sized by largest call); "
               f"families: {len(fam):,}")
         print("Families by tier:\n" + fam["tier"].value_counts().reindex(list(TIER_RANK)).fillna(0).astype(int).to_string())

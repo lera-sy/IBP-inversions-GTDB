@@ -110,6 +110,12 @@ bash hpc/build_loci.sh      # writes results/loci/selected_50_v1/
 bash hpc/run_model.sh       # writes results/model/selected_50_v1/
 ```
 
+### Finish the min-50 run (tiers with raw alignment, models, team comparison)
+
+```bash
+bash hpc/finish_50.sh       # figures in results/compare/selected_50_v1/
+```
+
 ### Min-20 run (own folders; min-50 results untouched)
 
 ```bash
