@@ -1,0 +1,10 @@
+name: ibp-rrna
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - barrnap
+  - minimap2=2.31
+  - python=3.12
+  - pandas<3

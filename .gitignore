@@ -1,0 +1,15 @@
+# Data files
+data/
+
+# Snakemake
+.snakemake/
+
+# Ruff
+.ruff_cache/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Generated analysis results
+results/

@@ -1,0 +1,95 @@
+# Single source of truth for the rerun.
+# Every script and rule reads its settings from here; nothing is hard-coded.
+# Run-specific overrides go in config/runs/*.yaml (passed with --configfile).
+#
+# Status of the `definitions` block: PROPOSED (Phase 1 of the plan).
+# Once we confirm them, set `definitions_status: locked` and log any later
+# change in docs/decisions.md with date and reason.
+
+definitions_status: proposed
+
+# ---------------------------------------------------------------------------
+# Phase 1: definitions (proposed defaults + their sensitivity checks)
+# ---------------------------------------------------------------------------
+definitions:
+  event:
+    unit: locus                 # overlapping and nested calls merged into one locus
+    sensitivity: all_calls      # every raw call counted separately
+  locus_size:
+    main: outer_span            # outer span of the merged locus
+    sensitivity: largest_call
+  circular_arc: shorter         # report the shorter arc (at most half the chromosome)
+  counting:
+    main: once_per_species      # each inversion family once per species
+    sensitivity: once_per_genome
+  breakpoint_tolerance_bp:
+    main: 5000
+    sensitivity: 25000
+  detection_floor_bp:
+    main: 6000                  # applied to ALL callers, not only Leen
+    sensitivity: 10000
+  size_unit:
+    main: kb_log10
+    sensitivity: percent_of_chromosome
+  genome_size:
+    main: analysed_chromosome_length
+    sensitivity: whole_genome_length
+  chromosomes:
+    main: largest_only
+    sensitivity: add_second_if_large   # threshold to decide in Phase 4
+  min_loci_per_species:
+    main: 3
+    sensitivity: 1
+  model:
+    main: phylogenetic_mixed_model     # on loci
+    sensitivity: pgls_geometric_means  # species geometric means
+  null_slopes:
+    S0: from_null_model                # Phase 3; slope 0 kept as an extra check
+    S1: 1.0
+  tiers:
+    defined_on: locus
+    # The two SyRI-based callers count as ONE line of evidence.
+    evidence_lines: [leen, syri_any, raw_alignment]
+    high: "leen AND syri_any AND raw_alignment"
+    medium: "any 2 of 3 evidence lines"
+    low: "1 evidence line"
+    main_analysis: [high, medium]
+
+# ---------------------------------------------------------------------------
+# Phase 2: data selection (GTDB species from the start)
+# ---------------------------------------------------------------------------
+selection:
+  gtdb_release: r232
+  gtdb_metadata: null          # path on the VSC, e.g. $VSC_DATA/gtdb/bac120_metadata_r232.tsv.gz
+  gtdb_tree: null              # e.g. $VSC_DATA/gtdb/bac120_r232.tree
+  include_archaea: true        # ar53 files needed if any archaea pass
+  assembly_level: complete
+  source: refseq
+  checkm2_completeness_min: 95.0
+  checkm2_contamination_max: 5.0
+  min_genomes_per_species: 20
+  max_genomes_per_species: 50
+  seed: 42
+  exclude_linear_chromosomes: true  # until a linear arc rule exists
+
+# ---------------------------------------------------------------------------
+# Callers (values retained from the validated team pilot)
+# ---------------------------------------------------------------------------
+leen:
+  window: 2000
+  min_size: 6000
+  max_jump: 20000
+syri_env: ibp-syri
+
+# Module 6 (team catalogue, kept until our locus module replaces it)
+module6:
+  breakpoint_tolerance_bp: 5000
+
+# Species dropped if more than this fraction of genomes fail in any caller
+max_failed_fraction: 0.20
+
+# Phase 3: null model
+null_model:
+  chromosome_sizes_mb: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  breakpoint_pairs_per_size: 10000
+  seed: 42

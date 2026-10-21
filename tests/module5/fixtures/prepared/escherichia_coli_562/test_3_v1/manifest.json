@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "species_id": "escherichia_coli_562",
+  "taxid": 562,
+  "scientific_name": "Escherichia coli",
+  "cohort_id": "test_3_v1",
+  "genomes_file": "genomes.tsv",
+  "reference_assembly_id": "GCF_999900001.1",
+  "analysis_scope": "primary_chromosome",
+  "selected_count": 3,
+  "accepted_count": 3
+}

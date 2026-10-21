@@ -1,0 +1,40 @@
+name: Pipeline CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      VSC_SCRATCH: /tmp
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: envs/pipeline.yaml
+          cache-environment: true
+
+
+      - name: Lint Python scripts
+        shell: bash -el {0}
+        run: ruff check .
+
+      - name: Test preparation scripts
+        shell: bash -el {0}
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+
+      - name: Lint Snakemake workflow
+        shell: bash -el {0}
+        run: snakemake --lint
+        continue-on-error: true
+
+      - name: Dry-run Snakemake workflow
+        shell: bash -el {0}
+        run: snakemake -n --cores 1

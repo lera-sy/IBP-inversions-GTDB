@@ -1,0 +1,13 @@
+name: ibp-stats
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - pandas<3
+  - numpy
+  - scipy
+  - statsmodels
+  - dendropy
+  - matplotlib
+  - pyyaml

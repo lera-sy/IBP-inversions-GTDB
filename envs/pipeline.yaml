@@ -1,0 +1,19 @@
+name: ibp-pipeline
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python=3.13
+  - snakemake=9.16.3
+  - pandas<3
+  - pyyaml
+  - requests
+  - ncbi-datasets-cli=18.37.0
+  - dnaapler=1.4.0
+  - mmseqs2=18.8cc5c
+  - mash=2.3
+  - minimap2=2.31
+  - matplotlib
+  - ruff=0.16.9
+  - snakemake-executor-plugin-slurm

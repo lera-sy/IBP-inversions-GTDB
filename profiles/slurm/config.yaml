@@ -1,0 +1,14 @@
+# Snakemake 9 Slurm profile for VSC Leuven (wICE).
+# Use:  snakemake --profile profiles/slurm
+# Set your credit account once:  export SBATCH_ACCOUNT=<your lp_ account>
+executor: slurm
+jobs: 50                 # max jobs in the queue at once
+latency-wait: 60
+rerun-incomplete: true
+keep-going: true         # one failing species does not stop the others
+printshellcmds: true
+default-resources:
+  slurm_partition: batch
+  runtime: 120           # minutes
+  mem_mb: 4000
+  cpus_per_task: 1

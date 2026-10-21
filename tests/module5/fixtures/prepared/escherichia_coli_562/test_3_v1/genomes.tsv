@@ -1,0 +1,4 @@
+assembly_id	fasta_path	sequence_id	chromosome_accession	chromosome_length_bp	genome_length_bp	topology	is_reference	sha256
+GCF_999900001.1	genomes/GCF_999900001.1.fna	GCF_999900001.1_chromosome	MOCK_GCF_999900001.1	2400	2400	circular	true	8a1e6ef0dc8fc014669444a6506401fdd82a12d3f85282bd879eea3bf14f0b34
+GCF_999900002.1	genomes/GCF_999900002.1.fna	GCF_999900002.1_chromosome	MOCK_GCF_999900002.1	2400	2400	circular	false	d35ce1958f8da6fc9783fcc2781bf698f56429a4d308e3b471ba4977be6dda15
+GCF_999900003.1	genomes/GCF_999900003.1.fna	GCF_999900003.1_chromosome	MOCK_GCF_999900003.1	2400	2400	circular	false	0c0579d256d0c5ff97a1b5cf53631ded57994d3bafc88af7a414783f791c0fe9

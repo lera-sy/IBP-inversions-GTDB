@@ -1,0 +1,13 @@
+prepared_root: tests/module5/fixtures/prepared
+results_root: results/module5
+
+packages:
+  - species_id: escherichia_coli_562
+    cohort_id: test_3_v1
+
+syri_env: ibp-syri
+
+leen:
+  window: 100
+  min_size: 200
+  max_jump: 200
