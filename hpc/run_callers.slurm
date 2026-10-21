@@ -12,7 +12,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=36
-#SBATCH --mem=72G
+#SBATCH --mem=200G
 #SBATCH --time=12:00:00
 #SBATCH --output=logs/callers_%j.log
 
@@ -22,6 +22,9 @@ source "$VSC_DATA/miniforge3/bin/activate"
 conda activate ibp-pipeline
 
 echo "Start: $(date)  cores: $SLURM_CPUS_PER_TASK"
-snakemake --cores "$SLURM_CPUS_PER_TASK" \
-    --rerun-incomplete --keep-going module6_complete
+# Keep 15% of the node memory free for Snakemake itself.
+MEM_MB=$(( SLURM_MEM_PER_NODE * 85 / 100 ))
+echo "Memory budget for jobs: ${MEM_MB} MB"
+snakemake --cores "$SLURM_CPUS_PER_TASK" --resources mem_mb="$MEM_MB" \
+    --retries 1 --rerun-incomplete --keep-going module6_complete
 echo "End: $(date)"

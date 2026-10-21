@@ -121,6 +121,11 @@ rule inversion_pair:
         query_topology=lambda wc: module5_job(wc).query_topology,
         options=module5_options,
     threads: 2
+    # Memory budget per comparison (doubled on a retry). With
+    # `--resources mem_mb=<node memory>` Snakemake never starts more
+    # comparisons than fit in memory.
+    resources:
+        mem_mb=lambda wc, attempt: 8000 * attempt,
     shell:
         """
         PYTHONPATH=src python -m ibp.module5.{wildcards.caller} \
