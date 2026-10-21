@@ -98,6 +98,10 @@ def load_package(manifest_path: str | Path) -> SpeciesPackage:
     """Load and validate one species/cohort package."""
 
     manifest_path = Path(manifest_path).resolve()
+    # Snakemake can pass the checkpoint package folder instead of the
+    # manifest inside it; accept both.
+    if manifest_path.is_dir():
+        manifest_path = manifest_path / "manifest.json"
     root = manifest_path.parent
 
     manifest = json.loads(

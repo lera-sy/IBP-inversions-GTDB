@@ -115,3 +115,12 @@ class TestInputContract(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PackageFolderTest(unittest.TestCase):
+    def test_folder_or_manifest_both_load(self):
+        from pathlib import Path
+
+        from ibp.module5.validate_input import load_package
+        folder = Path("tests/module5/fixtures/prepared/escherichia_coli_562/test_3_v1")
+        self.assertEqual(load_package(folder).species_id, load_package(folder / "manifest.json").species_id)
