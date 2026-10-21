@@ -10,7 +10,7 @@ import pandas as pd
 from ibp.module3.normalize_chromosomes import read_chromosome
 
 
-def rank_distances(path, assemblies):
+def rank_distances(path, assemblies, eligible=None):
     distances = {}
     for line in path.read_text().splitlines():
         first, second, value, _, _ = line.split("\t")
@@ -32,7 +32,13 @@ def rank_distances(path, assemblies):
         mean = sum(neighbors) / len(neighbors) if neighbors else None
         rows.append({"assembly_id": accession, "mean_mash_distance": mean})
     ranking = pd.DataFrame(rows).sort_values(["mean_mash_distance", "assembly_id"])
-    ranking["is_reference"] = (ranking["assembly_id"] == ranking.iloc[0]["assembly_id"]).map({True: "true", False: "false"})
+    # The reference must be circular (the callers need it); fall back to all if none is.
+    allowed = set(eligible) if eligible else set(assemblies)
+    ranking["eligible_reference"] = ranking["assembly_id"].isin(allowed)
+    if not ranking["eligible_reference"].any():
+        ranking["eligible_reference"] = True
+    best = ranking[ranking["eligible_reference"]].iloc[0]["assembly_id"]
+    ranking["is_reference"] = (ranking["assembly_id"] == best).map({True: "true", False: "false"})
     return ranking
 
 
@@ -76,9 +82,10 @@ def main():
                     "-o", str(prefix), *[str(path.resolve()) for path in sorted(args.fastas)]], check=True)
     with distances.open("w") as handle:
         subprocess.run(["mash", "dist", "-p", "1", str(sketch), str(sketch)], stdout=handle, check=True)
-    ranking = rank_distances(distances, selected)
+    circular = details.index[details["Topology"] == "circular"].tolist()
+    ranking = rank_distances(distances, selected, circular)
     ranking.to_csv(args.output_dir / "reference_ranking.tsv", sep="\t", index=False)
-    reference = ranking.iloc[0]["assembly_id"]
+    reference = ranking.loc[ranking["is_reference"] == "true", "assembly_id"].iloc[0]
     (args.output_dir / "reference.txt").write_text(reference + "\n")
     print(f"Species {args.taxid}: selected {reference} from {len(selected)} accepted chromosomes.")
 

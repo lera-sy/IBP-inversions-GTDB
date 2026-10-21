@@ -40,6 +40,20 @@ class ReferenceTest(unittest.TestCase):
             if len(assemblies) == 1:
                 self.assertTrue(pd.isna(ranking.iloc[0]["mean_mash_distance"]))
 
+    def test_reference_must_be_circular(self):
+        matrix = {("a", "a"): 0, ("b", "b"): 0, ("c", "c"): 0,
+                  ("a", "b"): 0.1, ("b", "a"): 0.1,
+                  ("a", "c"): 0.3, ("c", "a"): 0.3,
+                  ("b", "c"): 0.2, ("c", "b"): 0.2}
+        self.write_distances(matrix)
+        # b is the medoid but linear; a is the best circular one
+        ranking = reference.rank_distances(self.distances, ["a", "b", "c"], eligible=["a", "c"])
+        self.assertEqual(ranking.set_index("assembly_id").loc["a", "is_reference"], "true")
+        self.assertEqual((ranking["is_reference"] == "true").sum(), 1)
+        # no circular chromosome at all: fall back to the medoid
+        ranking = reference.rank_distances(self.distances, ["a", "b", "c"], eligible=[])
+        self.assertEqual(ranking.set_index("assembly_id").loc["b", "is_reference"], "true")
+
     def test_invalid_distance_tables(self):
         good = {("a", "a"): 0, ("a", "b"): 0.1, ("b", "a"): 0.1, ("b", "b"): 0}
         self.write_distances(good)
@@ -86,7 +100,8 @@ class ReferenceTest(unittest.TestCase):
 
         with patch.object(sys, "argv", command), patch.object(reference.subprocess, "run", side_effect=mash):
             reference.main()
-        self.assertEqual((self.root / "output/reference.txt").read_text(), "GCF_a.1\n")
+        # Tie on distance: the circular chromosome wins (a linear reference cannot be used by the callers).
+        self.assertEqual((self.root / "output/reference.txt").read_text(), "GCF_b.1\n")
 
         for column, value in [("Normalization Status", "REVIEW"), ("Topology", "unknown"),
                               ("Organism Taxonomic ID", "2"), ("Chromosome Length", "8"),

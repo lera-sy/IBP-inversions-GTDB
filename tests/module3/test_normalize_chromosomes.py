@@ -117,3 +117,40 @@ class NormalizeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NormalizeCacheTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        root = Path(self.temporary.name)
+        self.root = root
+        for d in ["chromosomes", "normalized", "logs", "old_fna", "old_logs", "cache_out"]:
+            (root / d).mkdir()
+        (root / "chromosomes" / "GCF_test.1.fna").write_text(">CHR.1 original\nAACCGTA\n")
+        self.row = {"Assembly Accession": "GCF_test.1", "Chromosome Accession": "CHR.1",
+                    "Topology Status": "PASS", "Topology Notes": "", "Topology": "circular",
+                    "Chromosome Length": "7", "NCBI Length": "7"}
+        pd.DataFrame([{"Contig": "CHR.1 original", "Gene_Reoriented": "dnaA", "Top_Hit": "DNAA"}]).to_csv(
+            root / "old_logs" / "GCF_test.1.tsv", sep="\t", index=False)
+        self.args = SimpleNamespace(chromosomes=root / "chromosomes", normalized=root / "normalized",
+                                    logs=root / "logs", cache=[f"{root / 'old_fna'}:{root / 'old_logs'}"],
+                                    cache_out=root / "cache_out")
+
+    def test_valid_cache_is_reused_without_dnaapler(self):
+        (self.root / "old_fna" / "GCF_test.1.fna").write_text(">GCF_test.1\nCCGTAAA\n")
+        with patch("ibp.module3.normalize_chromosomes.subprocess.run") as run:
+            result = normalize_one(self.row, self.args)
+        run.assert_not_called()
+        self.assertEqual(result["Normalization Status"], "PASS")
+        self.assertEqual(result["Normalization Notes"], "reused_from_cache")
+        self.assertEqual((result["Transformation"], result["Rotation Offset"]), ("rotation", 2))
+        self.assertTrue((self.root / "cache_out" / "GCF_test.1.fna").is_file())
+
+    def test_cache_for_a_different_sequence_is_rejected(self):
+        (self.root / "old_fna" / "GCF_test.1.fna").write_text(">GCF_test.1\nAACCGTT\n")
+        with patch("ibp.module3.normalize_chromosomes.subprocess.run") as run:
+            result = normalize_one(self.row, self.args)
+        run.assert_not_called()
+        self.assertEqual(result["Normalization Status"], "REVIEW")
+        self.assertEqual(result["Normalization Notes"], "unexpected_sequence_change")

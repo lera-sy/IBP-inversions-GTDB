@@ -39,6 +39,22 @@ def check_transformation(original, normalized):
     raise ValueError("unexpected_sequence_change")
 
 
+def find_cached(accession, args):
+    """Normalized FASTA + Dnaapler summary from an earlier run, if both exist.
+
+    Cache entries are only trusted after the same checks as a fresh result:
+    the cached FASTA must be an exact rotation / reverse complement of this
+    run's input chromosome (check_transformation) and the summary must confirm
+    the dnaA anchor for the same sequence.
+    """
+    for entry in getattr(args, "cache", None) or []:
+        fasta_dir, log_dir = (Path(x) for x in entry.split(":", 1))
+        fasta, summary = fasta_dir / f"{accession}.fna", log_dir / f"{accession}.tsv"
+        if fasta.is_file() and summary.is_file():
+            return fasta, summary, log_dir / f"{accession}.log"
+    return None
+
+
 def normalize_one(row, args):
     row = row.copy()
     row.update({"Normalization Status": "REVIEW", "Normalization Notes": "",
@@ -62,6 +78,20 @@ def normalize_one(row, args):
             normalized = original
             transformation, offset = "unchanged_linear", 0
             row["Anchor Result"] = "not_applicable"
+        elif (cached := find_cached(accession, args)) is not None:
+            cached_fasta, cached_summary, cached_log = cached
+            row["Dnaapler Log"] = str(cached_log)
+            row["Dnaapler Version"] = DNAAPLER_VERSION
+            summary = pd.read_csv(cached_summary, sep="\t", dtype=str, keep_default_na=False)
+            if len(summary) != 1 or summary.iloc[0]["Contig"].split()[0] != sequence_id:
+                raise ValueError("dnaapler_summary_sequence_mismatch")
+            anchor = summary.iloc[0]["Gene_Reoriented"]
+            row["Anchor Result"] = anchor
+            if anchor not in {"dnaA", "Contig_already_reoriented"}:
+                raise ValueError("dnaA_anchor_not_confirmed")
+            _, normalized = read_chromosome(cached_fasta)
+            transformation, offset = check_transformation(original, normalized)
+            row["Normalization Notes"] = "reused_from_cache"
         else:
             row["Dnaapler Log"] = str(log_path)
             row["Dnaapler Version"] = DNAAPLER_VERSION
@@ -98,10 +128,14 @@ def normalize_one(row, args):
 
         # Write the accepted chromosome with its assembly accession as the ID.
         target = args.normalized / f"{accession}.fna"
-        with target.open("w") as handle:
-            handle.write(f">{accession}\n")
-            for start in range(0, len(normalized), 80):
-                handle.write(normalized[start:start + 80] + "\n")
+        targets = [target]
+        if getattr(args, "cache_out", None):      # persistent copy so a rerun can resume
+            targets.append(Path(args.cache_out) / f"{accession}.fna")
+        for path in targets:
+            with path.open("w") as handle:
+                handle.write(f">{accession}\n")
+                for start in range(0, len(normalized), 80):
+                    handle.write(normalized[start:start + 80] + "\n")
         row.update({"Normalization Status": "PASS", "Transformation": transformation,
                     "Rotation Offset": offset, "Normalized FASTA": str(target)})
     except ValueError as error:
@@ -126,7 +160,13 @@ def main():
     parser.add_argument("--report", required=True)
     parser.add_argument("--passed", required=True)
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--cache", action="append", default=[],
+                        help="FASTA_DIR:LOG_DIR of earlier results to reuse (repeatable)")
+    parser.add_argument("--cache-out", type=Path,
+                        help="also write each result here (outside Snakemake's output) for resuming")
     args = parser.parse_args()
+    if args.cache_out:
+        args.cache_out.mkdir(parents=True, exist_ok=True)
 
     if args.workers < 1:
         raise ValueError("--workers must be at least 1.")

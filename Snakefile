@@ -25,15 +25,18 @@ RUN_PROCESSED_DIR = (
 )
 REFERENCE_DIR = DOWNLOAD_DIR + "/reference_selection/{species}/" + COHORT
 PREPARED_DIR = DOWNLOAD_DIR + "/prepared/{species}/" + COHORT
-# Written by Module 1 (GTDB selection); taxid = GTDB species key, not an NCBI TaxID.
-SPECIES_TABLE = "data/processed/species.tsv"
+# Module 1 (GTDB selection) output folder. An isolated run (isolate_run: true)
+# keeps its own selection, so e.g. a min-20 run never overwrites the min-50 one.
+SELECTION_DIR = RUN_PROCESSED_DIR if ISOLATE_RUN else "data/processed"
+# taxid = GTDB species key, not an NCBI TaxID.
+SPECIES_TABLE = f"{SELECTION_DIR}/species.tsv"
 # Normal runs use Module 1's full multi-species assembly selection.
 # Only an explicitly configured local integration test filters downstream assemblies.
 LOCAL_SELECTION_TEST = "run_assembly_limit" in config
 RUN_ASSEMBLIES = (
     f"{RUN_PROCESSED_DIR}/run_selected_assemblies.tsv"
     if LOCAL_SELECTION_TEST
-    else "data/processed/selected_assemblies.tsv"
+    else f"{SELECTION_DIR}/selected_assemblies.tsv"
 )
 
 
@@ -78,9 +81,9 @@ def reference_fastas(wildcards):
 
 rule all:
     input:
-        "data/processed/selected_assemblies.tsv",
-        "data/processed/selection_summary.tsv",
-        "data/processed/species.tree",
+        f"{SELECTION_DIR}/selected_assemblies.tsv",
+        f"{SELECTION_DIR}/selection_summary.tsv",
+        f"{SELECTION_DIR}/species.tree",
         DOWNLOAD_DIR + "/genomes",
         DOWNLOAD_DIR + "/sequence_reports",
         f"{RUN_PROCESSED_DIR}/genome_qc.tsv",

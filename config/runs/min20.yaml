@@ -1,0 +1,11 @@
+# Min-20 run: species with >= 20 genomes (max 50), in its own folders.
+# Selection -> data/processed/runs/selected_min20_v1/
+# Genomes, packages, callers -> $VSC_SCRATCH/IBP-main/runs/selected_min20_v1/
+cohort: selected_min20_v1
+isolate_run: true
+selection:
+  min_genomes_per_species: 20
+  max_genomes_per_species: 50
+# Reuse chromosomes already normalized by the min-50 run (checked base by base).
+normalization_reuse:
+  - "$VSC_SCRATCH/IBP-main/normalized_chromosomes:$VSC_SCRATCH/IBP-main/normalization_logs"

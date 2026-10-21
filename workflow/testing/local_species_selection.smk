@@ -3,7 +3,7 @@
 rule select_run_assemblies:
     """Select the assemblies entering Modules 2-5, retaining Module 1 outputs."""
     input:
-        selected = "data/processed/selected_assemblies.tsv",
+        selected = f"{SELECTION_DIR}/selected_assemblies.tsv",
         species_table = SPECIES_TABLE
     output:
         RUN_ASSEMBLIES

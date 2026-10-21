@@ -110,4 +110,17 @@ bash hpc/build_loci.sh      # writes results/loci/selected_50_v1/
 bash hpc/run_model.sh       # writes results/model/selected_50_v1/
 ```
 
+### Min-20 run (own folders; min-50 results untouched)
+
+```bash
+sbatch --account=lp_edu_large_omics hpc/run_min20.slurm
+# when finished:
+COHORT=selected_min20_v1 bash hpc/build_loci.sh
+COHORT=selected_min20_v1 bash hpc/run_model.sh
+COHORT=selected_min20_v1 bash hpc/check_local.sh
+```
+
+Do not rerun the default (min-50) target: its results are final, and code changes since
+(normalization cache, circular-only reference) would make Snakemake want to redo it.
+
 Exact commands for later phases are added here as each phase is built.

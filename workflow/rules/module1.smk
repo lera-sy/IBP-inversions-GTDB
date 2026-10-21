@@ -74,11 +74,11 @@ rule gtdb_select:
         gtdb = GTDB_METADATA,
         code = "src/ibp/module1/gtdb_select.py"
     output:
-        selected = "data/processed/selected_assemblies.tsv",
-        species = "data/processed/species.tsv",
-        summary = "data/processed/selection_summary.tsv",
-        steps = "data/processed/selection_steps.tsv",
-        thresholds = "data/processed/selection_thresholds.tsv"
+        selected = f"{SELECTION_DIR}/selected_assemblies.tsv",
+        species = f"{SELECTION_DIR}/species.tsv",
+        summary = f"{SELECTION_DIR}/selection_summary.tsv",
+        steps = f"{SELECTION_DIR}/selection_steps.tsv",
+        thresholds = f"{SELECTION_DIR}/selection_thresholds.tsv"
     params:
         completeness = SELECTION["checkm2_completeness_min"],
         contamination = SELECTION["checkm2_contamination_max"],
@@ -100,12 +100,12 @@ rule gtdb_select:
 
 rule gtdb_tree:
     input:
-        species = "data/processed/species.tsv",
+        species = f"{SELECTION_DIR}/species.tsv",
         tree = GTDB_TREE,
         code = "src/ibp/module1/gtdb_tree.py"
     output:
-        tree = "data/processed/species.tree",
-        missing = "data/processed/species_not_in_tree.tsv"
+        tree = f"{SELECTION_DIR}/species.tree",
+        missing = f"{SELECTION_DIR}/species_not_in_tree.tsv"
     resources:
         mem_mb = 16000
     shell:
