@@ -13,3 +13,5 @@ echo; echo "########## 3. Local-inversion checks"
 bash hpc/check_local.sh | head -n 25
 echo; echo "########## 4. Comparison with the team run"
 PYTHONPATH=src python -m ibp.stats.compare_team --loci results/loci/$COHORT --model results/model/$COHORT --out results/compare/$COHORT
+echo; echo "########## 5. Figures for this run"
+PYTHONPATH=src python -m ibp.stats.plot_run --loci results/loci/$COHORT --model results/model/$COHORT --out results/figures/$COHORT

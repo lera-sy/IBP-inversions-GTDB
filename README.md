@@ -113,7 +113,8 @@ bash hpc/run_model.sh       # writes results/model/selected_50_v1/
 ### Finish the min-50 run (tiers with raw alignment, models, team comparison)
 
 ```bash
-bash hpc/finish_50.sh       # figures in results/compare/selected_50_v1/
+bash hpc/finish_50.sh       # comparison: results/compare/selected_50_v1/, this run: results/figures/selected_50_v1/
+bash hpc/plot_run.sh        # only the figures for this run
 ```
 
 ### Min-20 run (own folders; min-50 results untouched)
