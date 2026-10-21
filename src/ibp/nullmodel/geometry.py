@@ -98,11 +98,18 @@ def ols_slope(x, y):
     return float(np.polyfit(x, y, 1)[0])
 
 
-def one_replicate(lengths, n_events, null, rng, floor_bp, min_events, dist=None, empirical=None):
+def one_replicate(lengths, n_events, null, rng, floor_bp, min_events, dist=None, empirical=None,
+                  x_values=None):
+    """n_events: one number for all species, or one per species.
+    x_values: per-species value regressed on (default: chromosome length)."""
+    counts = np.broadcast_to(np.asarray(n_events), (len(lengths),))
+    xs = lengths if x_values is None else x_values
     rows = []
-    for species, length in enumerate(lengths):
-        size, cls = simulate_species(length, n_events, null, rng, floor_bp, dist, empirical)
-        rows.append(pd.DataFrame({"species": species, "length": length, "size": size, "cls": cls}))
+    for species, (length, k, xv) in enumerate(zip(lengths, counts, xs)):
+        if k < 1:
+            continue
+        size, cls = simulate_species(length, int(k), null, rng, floor_bp, dist, empirical)
+        rows.append(pd.DataFrame({"species": species, "length": xv, "size": size, "cls": cls}))
     ev = pd.concat(rows, ignore_index=True)
     ev["x"], ev["y"] = np.log10(ev["length"]), np.log10(ev["size"] / 1000)
     out = {}
@@ -119,10 +126,18 @@ def one_replicate(lengths, n_events, null, rng, floor_bp, min_events, dist=None,
 def run(lengths_mb=None, species_table=None, n_species=80, n_events=30, replicates=200,
         floor_bp=6000, min_events=3, seed=42, empirical_sizes=None):
     rng = np.random.default_rng(seed)
+    x_values, counts = None, n_events
     if species_table is not None:
-        lengths = pd.read_csv(species_table, sep="\t")["chromosome_length_bp"].astype(float).to_numpy()
+        tab = pd.read_csv(species_table, sep="\t")
+        lengths = tab["chromosome_length_bp"].astype(float).to_numpy()
+        if "genome_length_bp" in tab:      # regress on genome size, cap on chromosome
+            x_values = tab["genome_length_bp"].astype(float).to_numpy()
+        if "n_events" in tab:              # real number of events per species
+            counts = tab["n_events"].astype(int).to_numpy()
         sample_lengths = lambda: lengths  # noqa: E731
-        source = f"species table ({len(lengths)} species)"
+        source = (f"species table ({len(lengths)} species"
+                  + (", real event counts" if "n_events" in tab else "")
+                  + (", x = genome size" if x_values is not None else "") + ")")
     else:
         lo, hi = min(lengths_mb), max(lengths_mb)
         sample_lengths = lambda: 10 ** rng.uniform(np.log10(lo * 1e6), np.log10(hi * 1e6), n_species)  # noqa: E731
@@ -137,15 +152,18 @@ def run(lengths_mb=None, species_table=None, n_species=80, n_events=30, replicat
 
     records = []
     for null, name, spec in scenarios:
-        reps = [one_replicate(sample_lengths(), n_events, null, rng, floor_bp, min_events, spec, empirical)
-                for _ in range(replicates)]
+        reps = [one_replicate(sample_lengths(), counts, null, rng, floor_bp, min_events, spec, empirical,
+                              x_values) for _ in range(replicates)]
         for key in reps[0]:
             vals = np.array([r[key] for r in reps], float)
             vals = vals[~np.isnan(vals)]
+            if len(vals) == 0:      # e.g. too few species with >= min_events in a subset
+                stats_ = (np.nan, np.nan, np.nan)
+            else:
+                stats_ = (round(float(vals.mean()), 3), round(float(np.percentile(vals, 2.5)), 3),
+                          round(float(np.percentile(vals, 97.5)), 3))
             records.append({"null": null, "size_distribution": name, "subset": key[0], "fit": key[1],
-                            "slope_mean": round(float(vals.mean()), 3),
-                            "slope_2.5": round(float(np.percentile(vals, 2.5)), 3),
-                            "slope_97.5": round(float(np.percentile(vals, 97.5)), 3),
+                            "slope_mean": stats_[0], "slope_2.5": stats_[1], "slope_97.5": stats_[2],
                             "replicates": len(vals)})
     table = pd.DataFrame(records)
     table.attrs["source"] = source

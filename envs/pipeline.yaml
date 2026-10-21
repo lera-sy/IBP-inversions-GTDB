@@ -15,6 +15,7 @@ dependencies:
   - mash=2.3
   - minimap2=2.31
   - matplotlib
+  - scipy
   - ruff=0.16.9
   - snakemake-executor-plugin-slurm
   - dendropy

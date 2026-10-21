@@ -104,4 +104,10 @@ sbatch --account=lp_edu_large_omics hpc/run_callers.slurm
 bash hpc/build_loci.sh      # writes results/loci/selected_50_v1/
 ```
 
+### Phase 3 S0 + Phase 7 model
+
+```bash
+bash hpc/run_model.sh       # writes results/model/selected_50_v1/
+```
+
 Exact commands for later phases are added here as each phase is built.
