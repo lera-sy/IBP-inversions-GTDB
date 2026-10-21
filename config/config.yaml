@@ -98,6 +98,5 @@ max_failed_fraction: 0.20
 
 # Phase 3: null model
 null_model:
-  chromosome_sizes_mb: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-  breakpoint_pairs_per_size: 10000
+  replicates: 200
   seed: 42

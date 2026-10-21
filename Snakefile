@@ -112,3 +112,6 @@ include: "workflow/rules/module5.smk"
 include: "workflow/rules/module6.smk"
 include: "workflow/rules/module7.smk"
 include: "workflow/rules/module8.smk"
+
+# Phase 3: null models (no genome data needed for 3A).
+include: "workflow/rules/nullmodel.smk"
