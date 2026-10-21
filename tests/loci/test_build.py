@@ -43,6 +43,17 @@ class GeometryTest(unittest.TestCase):
         self.assertTrue(same_breakpoints(900_000, 100_000, 101_000, 899_000, L, 5000))
 
 
+class WideLocusTest(unittest.TestCase):
+    def test_chain_around_circle_uses_largest_call(self):
+        raw = pd.DataFrame([leen("q", "0-300000", "a"), leen("q", "250000-550000", "b"),
+                            leen("q", "500000-800000", "c"), leen("q", "750000-1000000", "d")])
+        calls = prepare_calls(raw, L, 6000)
+        loci = build_loci(calls[calls.kept], L, 5000)
+        self.assertEqual(len(loci), 1)
+        self.assertTrue(loci.iloc[0]["wide_locus"])
+        self.assertEqual(loci.iloc[0]["size_bp"], 300000)
+
+
 class LociTiersTest(unittest.TestCase):
     def test_tiers_and_families(self):
         raw = pd.DataFrame([

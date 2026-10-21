@@ -68,6 +68,10 @@ def species_data(families, species, tiers, position, size_col, x_col):
     ev = families[families["tier"].isin(tiers)]
     if position:
         ev = ev[ev["position_class"] == position]
+    bad = ev[size_col].astype(float) <= 0
+    if bad.any():
+        print(f"WARNING: {int(bad.sum())} families with size 0 dropped ({size_col}).")
+        ev = ev[~bad]
     ev = ev.assign(y=np.log10(ev[size_col].astype(float) / 1000))
     g = ev.groupby("species_id")["y"]
     d = pd.DataFrame({"n": g.size(), "ybar": g.mean(),

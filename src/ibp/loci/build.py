@@ -10,7 +10,8 @@ calls     Successful comparisons only; circular query and reference only
 loci      Within one genome, calls from both callers whose reference intervals
           overlap or nest form one locus (one event). Locus size = shorter arc
           of the locus outer span (main) or the largest member call
-          (sensitivity). Position class as the team: `local` if both outer
+          (sensitivity). A locus whose overlapping calls chain over more than
+          half the circle (`wide_locus`) takes its largest call as its size. Position class as the team: `local` if both outer
           breakpoints lie on one replication arm (origin at 0 after dnaapler,
           terminus at half the chromosome), else `spanning`.
 tiers     Per locus, provisional until the raw-alignment check exists:
@@ -196,10 +197,15 @@ def build_loci(calls, length, tolerance):
                         for x in leen.itertuples() for y in syri.itertuples())
             tier = "high" if agree else ("medium" if len(leen) and len(syri) else "low")
             span = arc(a, b, length)
+            largest = int(m["size_bp"].max())
+            # A chain of overlapping calls can cover more than half the circle
+            # (or all of it); its outer span is then no longer one inversion's
+            # shorter arc, so the largest member call is used as its size.
+            wide = span > length / 2
             rows.append({"query_assembly": query, "locus": f"{query}:{k + 1}",
                          "start": a, "end": b,
-                         "size_bp": min(span, length - span),
-                         "largest_call_bp": int(m["size_bp"].max()),
+                         "size_bp": largest if wide else span,
+                         "largest_call_bp": largest, "wide_locus": wide,
                          "n_calls": len(m), "n_leen": len(leen), "n_syri": len(syri),
                          "breakpoints_agree": agree, "tier": tier,
                          "position_class": position_class(a, b, length),
@@ -347,7 +353,8 @@ def main():
         print(f"  excluded {r['species_id']}: {r['excluded']}")
     if len(fam):
         print(f"Calls kept (>= floor): {int(tables['calls']['kept'].sum()):,} of {len(tables['calls']):,}")
-        print(f"Loci: {len(tables['loci']):,}; families: {len(fam):,}")
+        print(f"Loci: {len(tables['loci']):,} ({int(tables['loci']['wide_locus'].sum())} wide, sized by largest call); "
+              f"families: {len(fam):,}")
         print("Families by tier:\n" + fam["tier"].value_counts().reindex(list(TIER_RANK)).fillna(0).astype(int).to_string())
         print("Families by position class (high + medium):\n"
               + fam[fam["tier"] != "low"]["position_class"].value_counts().to_string())
