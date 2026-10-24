@@ -3,6 +3,8 @@
 # random-breakpoint null, one species per genus/family, whole distribution.
 # A few minutes; login node is fine. ibp-pipeline active:
 #   bash hpc/robustness.sh
+# activates ibp-pipeline itself if it is not active
+if [ "${CONDA_DEFAULT_ENV:-}" != ibp-pipeline ]; then source "$VSC_DATA/miniforge3/bin/activate"; conda activate ibp-pipeline; fi
 set -euo pipefail
 COHORT=${COHORT:-selected_50_v1}
 if [ "$COHORT" = selected_50_v1 ]; then SEL=data/processed; ROOT=$VSC_SCRATCH/IBP-main
