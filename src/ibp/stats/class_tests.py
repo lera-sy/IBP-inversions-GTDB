@@ -232,19 +232,36 @@ def quantities(ev, sp, tree, with_joint=True):
     return out
 
 
-def null_tests(fam, sp, tree, observed, replicates, floor, tol, seed):
-    rng = np.random.default_rng(seed)
-    counts = fam.groupby("species_id").size()
-    L = sp.set_index("species_id")["reference_length_bp"].astype(float)
-    pooled = fam["size_bp"].astype(float).to_numpy()
+_W = {}
+
+
+def _one_null(job):
+    null, i = job
+    w = _W
+    rng = np.random.default_rng([w["seed"], 0 if null == "shuffle" else 1, i])
+    ev = simulate(w["counts"], w["L"], w["pooled"], null, rng, w["floor"], w["tol"])
+    return {"null": null, "replicate": i, **quantities(ev, w["sp"], w["tree"])}
+
+
+def null_tests(fam, sp, tree, observed, replicates, floor, tol, seed, workers=1):
+    _W.update(counts=fam.groupby("species_id").size(), sp=sp, tree=tree, floor=floor, tol=tol, seed=seed,
+              L=sp.set_index("species_id")["reference_length_bp"].astype(float),
+              pooled=fam["size_bp"].astype(float).to_numpy())
+    jobs = [(null, i) for null in ["shuffle", "random_breakpoints"] for i in range(replicates)]
     reps = []
-    for null in ["shuffle", "random_breakpoints"]:
-        for i in range(replicates):
-            ev = simulate(counts, L, pooled, null, rng, floor, tol)
-            reps.append({"null": null, "replicate": i, **quantities(ev, sp, tree)})
-            if (i + 1) % 25 == 0:
-                print(f"   {null}: {i + 1}/{replicates}", flush=True)
-    reps = pd.DataFrame(reps)
+    if workers > 1:
+        import multiprocessing as mp
+        with mp.get_context("fork").Pool(workers) as pool:
+            for k, r in enumerate(pool.imap_unordered(_one_null, jobs, chunksize=2), 1):
+                reps.append(r)
+                if k % 50 == 0:
+                    print(f"   {k}/{len(jobs)} null datasets", flush=True)
+    else:
+        for k, job in enumerate(jobs, 1):
+            reps.append(_one_null(job))
+            if k % 50 == 0:
+                print(f"   {k}/{len(jobs)} null datasets", flush=True)
+    reps = pd.DataFrame(reps).sort_values(["null", "replicate"], ascending=[False, True])
     rows = []
     for null, g in reps.groupby("null", sort=False):
         for q, obs in observed.items():
@@ -431,6 +448,7 @@ def main():
     ap.add_argument("--floor-bp", type=int, default=6000)
     ap.add_argument("--tolerance-bp", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
@@ -454,14 +472,6 @@ def main():
     print(f"{meta['n_species']} species, {meta['n_cells']} species x class cells")
     print(inter.round(4).to_string(index=False))
 
-    print("\n== 2. Observed vs null distributions (same model, same procedure)")
-    observed = quantities(fam, sp, tree, with_joint=False)
-    observed["slope_difference"] = d_obs
-    nt, reps = null_tests(fam, sp, tree, observed, a.replicates, a.floor_bp, a.tolerance_bp, a.seed)
-    nt.to_csv(a.out / "null_tests.tsv", sep="\t", index=False)
-    reps.to_csv(a.out / "null_replicates.tsv", sep="\t", index=False)
-    print(nt.round(4).to_string(index=False))
-
     print("\n== 3. Spanning share (clustered uncertainty) and symmetry")
     share, sym, per = share_and_symmetry(fam, sp, tree, taxa, ter, a.seed)
     share.to_csv(a.out / "spanning_share.tsv", sep="\t", index=False)
@@ -473,6 +483,15 @@ def main():
     split.to_csv(a.out / "symmetric_split.tsv", sep="\t", index=False)
     print("\nSize scaling, symmetric vs asymmetric spanning families (mixed model):")
     print(split.round(4).to_string(index=False))
+
+    print("\n== 2. Observed vs null distributions (same model, same procedure)")
+    observed = quantities(fam, sp, tree, with_joint=False)
+    observed["slope_difference"] = d_obs
+    nt, reps = null_tests(fam, sp, tree, observed, a.replicates, a.floor_bp, a.tolerance_bp, a.seed,
+                          a.workers)
+    nt.to_csv(a.out / "null_tests.tsv", sep="\t", index=False)
+    reps.to_csv(a.out / "null_replicates.tsv", sep="\t", index=False)
+    print(nt.round(4).to_string(index=False))
 
     figure(reps, observed, sym, a.out / "class_tests.png")
     print(f"\nWritten to {a.out}: interaction_test.tsv, null_tests.tsv, null_replicates.tsv, "
