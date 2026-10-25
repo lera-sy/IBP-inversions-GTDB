@@ -26,7 +26,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 GENOME = "median_genome_length_bp"
-COL = {"spanning": "#e8693b", "local": "#2f7ad6"}
+COL = {"spanning": "#e4572e", "local": "#1f6fd1"}
 NAME = {"spanning": "Spanning origin or terminus", "local": "Local (one replication arm)"}
 MB = [1, 1.5, 2, 3, 4, 5, 7]
 KB = [3, 10, 30, 100, 300, 1000, 3000]
@@ -79,16 +79,30 @@ def line(ax, g, slope, **kw):
 
 def question(fam, sp, main, nulls, out):
     fig, ax = plt.subplots(figsize=(8.5, 6.2))
-    ax.scatter(fam["x"], fam["y"], s=10, color="#9a9a9a", alpha=0.45, lw=0, label="Inversion family (828)")
-    cap = sp.assign(x=np.log10(sp[GENOME] / 1e6), y=np.log10(sp["reference_length_bp"] / 2 / 1000))
+    ax.scatter(fam["x"], fam["y"], s=14, color="#5b6f8a", alpha=0.6, lw=0, label=f"Inversion family ({len(fam)})")
+    cap = sp.assign(x=np.log10(sp[GENOME] / 1e6), y=np.log10(sp["reference_length_bp"] / 2 / 1000),
+                    ratio=sp["reference_length_bp"] / sp[GENOME])
     ax.scatter(cap["x"], cap["y"], marker="_", s=120, color="black", lw=1.6,
-               label="Largest possible inversion (half the chromosome)")
+               label="Largest possible inversion (half the main chromosome)")
+    # Species whose main chromosome is much smaller than the genome (second chromosome):
+    # their cap sits lower than genome size suggests. Name them so the dips are explained.
+    low = cap[cap["ratio"] < 0.8].sort_values("x")
+    for k, (_, r) in enumerate(low.iterrows()):
+        last = k == len(low) - 1
+        g_, s_ = r["scientific_name"].split(" ", 1)
+        ax.annotate(f"{g_[0]}. {s_}*", (r["x"], r["y"]), xytext=(r["x"] + (0.012 if last else 0),
+                    np.log10(6200 if k % 2 == 0 else 4300)), textcoords="data",
+                    ha="right" if last else "center", va="center", fontsize=8.5, style="italic",
+                    arrowprops={"arrowstyle": "-", "lw": 0.6, "color": "black", "shrinkB": 2})
+    if len(low):
+        ax.text(0.01, 0.985, "* two chromosomes: the main one is smaller than the genome, so its limit sits lower",
+                transform=ax.transAxes, fontsize=8, va="top", color="#444444")
     g = species_means(fam)
     room = nulls.loc[("shuffle", "slope_all"), "null_mean"]
     line(ax, g, main["slope"], color="#1f5fb4", lw=3,
          label=f"Observed trend: slope {main['slope']:.2f} [{main['ci_low']:.2f}, {main['ci_high']:.2f}]")
     line(ax, g, room, color="#e08a1e", lw=2.2, ls="--", label=f"Expected from extra room alone: {room:.2f}")
-    ax.set_ylim(np.log10(5), np.log10(5000))
+    ax.set_ylim(np.log10(5), np.log10(9000))
     ax.set_xlim(g["x"].min() - 0.03, g["x"].max() + 0.03)
     ticks(ax)
     ax.set_xlabel("Genome size (log scale)")
@@ -143,7 +157,7 @@ def split_scatter(fam, res, nulls, diff, out):
     fig, ax = plt.subplots(figsize=(8.5, 6.8))
     for cls in ["spanning", "local"]:
         g = species_means(fam[fam["position_class"] == cls])
-        ax.scatter(g["x"], g["y"], s=14 + 7 * g["n"], color=COL[cls], alpha=0.6, edgecolors="white", lw=0.5)
+        ax.scatter(g["x"], g["y"], s=14 + 7 * g["n"], color=COL[cls], alpha=0.85, edgecolors="#222222", lw=0.4)
         m = res[(res["group"] == cls) & (res["analysis"] == "main") & (res["model"] == "PMM")].iloc[0]
         room = nulls.loc[("shuffle", f"slope_{cls}"), "null_mean"]
         pr = nulls.loc[("shuffle", f"slope_{cls}"), "p_empirical_two_sided"]
