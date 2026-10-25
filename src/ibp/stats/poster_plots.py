@@ -107,7 +107,7 @@ def question(fam, sp, main, nulls, out):
     ticks(ax)
     ax.set_xlabel("Genome size (log scale)")
     ax.set_ylabel("Inversion size (log scale)")
-    ax.set_title("Bigger genomes have more room, and inversions grow with it", loc="left")
+    ax.set_title("Inversions grow with the room bigger genomes offer", loc="left")
     ax.legend(fontsize=9.5, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=2)
     fig.tight_layout()
     fig.savefig(out, dpi=300)
