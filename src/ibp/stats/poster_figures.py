@@ -24,8 +24,10 @@ from matplotlib.patches import Arc, Circle  # noqa: E402
 
 from ibp.stats.poster_plots import load, species_means  # noqa: E402
 
-TEAL, TERRA, SLATE, GREY, LIGHT = "#00857C", "#D4643F", "#2F3E46", "#8A9BA3", "#C3CED3"
-COL = {"spanning": TERRA, "local": TEAL}
+# Okabe-Ito colour-blind safe pair: vermillion (spanning) and blue (local)
+VERM, BLUE, NAVY, GREY, LIGHT = "#D55E00", "#0072B2", "#1F3A5F", "#7D8C99", "#C5CFD8"
+TEAL, TERRA, SLATE = BLUE, VERM, NAVY
+COL = {"spanning": VERM, "local": BLUE}
 MB = [1, 1.5, 2, 3, 5, 7]
 KB = [10, 30, 100, 300, 1000, 3000]
 plt.rcParams.update({"font.family": "Carlito", "font.size": 20, "axes.edgecolor": SLATE,
@@ -65,7 +67,7 @@ def end_label(ax, xs, ys, text, color, dy=0.0, weight="bold", size=19):
             ha="left")
 
 
-def fig_question(fam, sp, main, room, out, size=(15.7, 6.5)):
+def fig_question(fam, sp, main, room, out, size=(11.8, 7.6)):
     fig, ax = plt.subplots(figsize=size)
     ax.scatter(fam["x"], fam["y"], s=26, color=LIGHT, lw=0, zorder=2)
     cap = sp.assign(x=np.log10(sp["median_genome_length_bp"] / 1e6),
@@ -77,22 +79,22 @@ def fig_question(fam, sp, main, room, out, size=(15.7, 6.5)):
     g = species_means(fam)
     x0, x1 = g["x"].min() - 0.01, g["x"].max() + 0.01
     xs, ys = fit_line(g, main["slope"], x0, x1)
-    ax.plot(xs, ys, color=TERRA, lw=5, zorder=4, solid_capstyle="round")
+    ax.plot(xs, ys, color=NAVY, lw=5, zorder=4, solid_capstyle="round")
     xs2, ys2 = fit_line(g, room, x0, x1)
-    ax.plot(xs2, ys2, color=SLATE, lw=2.6, ls=(0, (5, 3)), zorder=4)
-    end_label(ax, xs, ys, f"Observed: {main['slope']:.2f}", TERRA, dy=0.11)
-    end_label(ax, xs2, ys2, f"Room alone: {room:.2f}", SLATE, dy=-0.11, weight="normal")
-    ax.text(np.log10(1.02), np.log10(1400), "Largest possible inversion\n(half the chromosome; * second chromosome)", color=SLATE,
-            fontsize=17, va="bottom")
-    ax.set_ylim(np.log10(5), np.log10(5000))
-    ax.set_xlim(g["x"].min() - 0.03, g["x"].max() + 0.20)
+    ax.plot(xs2, ys2, color=GREY, lw=3, ls=(0, (5, 3)), zorder=4)
+    end_label(ax, xs, ys, f"Observed {main['slope']:.2f}", NAVY, dy=0.13)
+    end_label(ax, xs2, ys2, f"Room alone {room:.2f}", GREY, dy=-0.13, weight="normal")
+    ax.text(np.log10(1.0), np.log10(4200), "\u2014 Largest possible inversion\n    (half the chromosome; * two chromosomes)",
+            color=SLATE, fontsize=15, va="top")
+    ax.set_ylim(np.log10(5), np.log10(4500))
+    ax.set_xlim(g["x"].min() - 0.03, g["x"].max() + 0.27)
     axes_style(ax)
     fig.tight_layout()
     fig.savefig(out, dpi=220, transparent=True)
     plt.close(fig)
 
 
-def fig_split_scatter(fam, res, rooms, out, size=(15.7, 6.5)):
+def fig_split_scatter(fam, res, rooms, out, size=(10.4, 7.6)):
     fig, ax = plt.subplots(figsize=size)
     for cls in ["spanning", "local"]:
         g = species_means(fam[fam["position_class"] == cls])
@@ -106,53 +108,55 @@ def fig_split_scatter(fam, res, rooms, out, size=(15.7, 6.5)):
         ax.plot(xs2, ys2, color=COL[cls], lw=2.4, ls=(0, (5, 3)), zorder=4)
         name = "Spanning" if cls == "spanning" else "Local"
         up = ys[-1] >= ys2[-1]
-        end_label(ax, xs, ys, f"{name}: {m['slope']:+.2f}", COL[cls], dy=0.09 if up else -0.09)
-        end_label(ax, xs2, ys2, f"room alone: {rooms[cls]:+.2f}", COL[cls], dy=-0.09 if up else 0.09,
+        end_label(ax, xs, ys, f"{name} {m['slope']:+.2f}", COL[cls], dy=0.11 if up else -0.11)
+        end_label(ax, xs2, ys2, f"room {rooms[cls]:+.2f}", COL[cls], dy=-0.11 if up else 0.11,
                   weight="normal", size=17)
-    ax.text(0.995, 0.015, "circle area = number of inversion families", transform=ax.transAxes, ha="right",
+    ax.text(0.995, 0.015, "circle area = number of families", transform=ax.transAxes, ha="right",
             va="bottom", fontsize=14, color=GREY)
     ax.set_ylim(np.log10(5), np.log10(4000))
-    ax.set_xlim(fam["x"].min() - 0.03, fam["x"].max() + 0.25)
+    ax.set_xlim(fam["x"].min() - 0.03, fam["x"].max() + 0.30)
     axes_style(ax, ylabel="Mean inversion size per species")
     fig.tight_layout()
     fig.savefig(out, dpi=220, transparent=True)
     plt.close(fig)
 
 
-def fig_split_boxes(fam, res, rooms, out, size=(20.8, 6.9)):
-    fig, axes = plt.subplots(1, 2, figsize=size, sharey=True)
+def fig_split_boxes(fam, res, rooms, out, size=(10.4, 7.6)):
+    fig, axes = plt.subplots(2, 1, figsize=size, sharex=True, sharey=True)
     for ax, cls in zip(axes, ["spanning", "local"]):
         ev = fam[fam["position_class"] == cls]
         g = species_means(ev).sort_values("x")
         data = [ev.loc[ev["species_id"] == s, "y"].to_numpy() for s in g.index]
         bp = ax.boxplot(data, positions=g["x"].to_numpy(), widths=0.011, patch_artist=True, showfliers=False,
-                        manage_ticks=False, medianprops={"color": SLATE, "lw": 1.6},
-                        whiskerprops={"color": COL[cls], "lw": 1.1}, capprops={"color": COL[cls], "lw": 1.1})
+                        manage_ticks=False, medianprops={"color": NAVY, "lw": 1.4},
+                        whiskerprops={"color": COL[cls], "lw": 1.0}, capprops={"color": COL[cls], "lw": 1.0})
         for b in bp["boxes"]:
             b.set_facecolor(COL[cls])
             b.set_alpha(0.45)
             b.set_edgecolor(COL[cls])
         rng = np.random.default_rng(1)
-        ax.scatter(ev["x"] + rng.uniform(-0.003, 0.003, len(ev)), ev["y"], s=10, color=COL[cls], alpha=0.6, lw=0,
+        ax.scatter(ev["x"] + rng.uniform(-0.003, 0.003, len(ev)), ev["y"], s=8, color=COL[cls], alpha=0.6, lw=0,
                    zorder=3)
         m = res[(res["group"] == cls) & (res["analysis"] == "main") & (res["model"] == "PMM")].iloc[0]
         x0, x1 = fam["x"].min() - 0.01, fam["x"].max() + 0.01
         xs, ys = fit_line(g, m["slope"], x0, x1)
         xs2, ys2 = fit_line(g, rooms[cls], x0, x1)
-        ax.plot(xs, ys, color=SLATE, lw=4, zorder=5, solid_capstyle="round")
-        ax.plot(xs2, ys2, color=SLATE, lw=2.2, ls=(0, (5, 3)), zorder=5)
+        ax.plot(xs, ys, color=NAVY, lw=3.5, zorder=5, solid_capstyle="round")
+        ax.plot(xs2, ys2, color=NAVY, lw=2, ls=(0, (5, 3)), zorder=5)
         up = ys[-1] >= ys2[-1]
-        end_label(ax, xs, ys, f"observed {m['slope']:+.2f}", SLATE, dy=0.13 if up else -0.13, size=17)
-        end_label(ax, xs2, ys2, f"room {rooms[cls]:+.2f}", SLATE, dy=-0.13 if up else 0.13, weight="normal",
-                  size=17)
+        end_label(ax, xs, ys, f"observed {m['slope']:+.2f}", NAVY, dy=0.2 if up else -0.2, size=16)
+        end_label(ax, xs2, ys2, f"room {rooms[cls]:+.2f}", NAVY, dy=-0.2 if up else 0.2, weight="normal",
+                  size=16)
         name = "Spanning" if cls == "spanning" else "Local"
-        ax.set_title(f"{name}: {len(ev)} families, {len(g)} species, median {10 ** ev['y'].median():.0f} kb",
-                     loc="left", fontsize=20, color=COL[cls], fontweight="bold", pad=34)
-        ax.set_xlim(fam["x"].min() - 0.03, fam["x"].max() + 0.22)
-    axes[0].set_ylim(np.log10(5), np.log10(4000))
-    axes_style(axes[0], xlabel="Genome size, log scale (each box = one species)", ylabel_pos=1.01)
-    axes_style(axes[1], ylabel=None, xlabel="Genome size, log scale (each box = one species)")
-    fig.tight_layout(w_pad=3)
+        ax.text(0.01, 0.97, f"{name}: {len(ev)} families, median {10 ** ev['y'].median():.0f} kb",
+                transform=ax.transAxes, ha="left", va="top", fontsize=17, color=COL[cls], fontweight="bold")
+        ax.set_xlim(fam["x"].min() - 0.03, fam["x"].max() + 0.30)
+    axes[1].set_ylim(np.log10(5), np.log10(8000))
+    axes_style(axes[0], xlabel=None, ylabel="Inversion size", ylabel_pos=1.02)
+    axes_style(axes[1], ylabel=None, xlabel="Genome size, log scale (box = one species)")
+    for ax in axes:
+        ax.tick_params(labelsize=16)
+    fig.tight_layout(h_pad=0.6)
     fig.savefig(out, dpi=220, transparent=True)
     plt.close(fig)
 
