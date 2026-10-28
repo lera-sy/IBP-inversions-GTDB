@@ -32,57 +32,45 @@ rule download_genome_package:
 
 
 rule download_genomes:
+    # Resumable: progress is kept in genomes_work (not an output), only missing files
+    # are retried, and the few genomes NCBI no longer serves are listed and skipped
+    # (genome QC then drops them). Fails only if > 5% are missing.
     input:
+        code = "src/ibp/module2/robust_download.py",
         package = DOWNLOAD_DIR + "/genomes.zip",
         accessions = f"{RUN_PROCESSED_DIR}/selected_accessions.txt"
     output:
-        directory(DOWNLOAD_DIR + "/genomes")
+        genomes = directory(DOWNLOAD_DIR + "/genomes"),
+        missing = f"{RUN_PROCESSED_DIR}/download_missing_genomes.tsv"
+    params:
+        work = DOWNLOAD_DIR + "/genomes_work"
     threads: 2
     shell:
         """
-        python -m zipfile -e {input.package:q} {output:q}
-
-        # Limit concurrent downloads, retrying after 30 and then 60 seconds.
-        for delay in 0 30 60; do
-            sleep "$delay"
-            if datasets rehydrate --directory {output:q} --max-workers {threads}; then
-                break
-            fi
-            if [ "$delay" -eq 60 ]; then exit 1; fi
-        done
-
-        # Require a nonempty FASTA for every selected accession.
-        while read -r accession; do
-            test -s {output:q}/ncbi_dataset/data/"$accession"/*_genomic.fna
-        done < {input.accessions:q}
+        PYTHONPATH=src python -u -m ibp.module2.robust_download genomes \
+            --package {input.package:q} --accessions {input.accessions:q} \
+            --work {params.work:q} --out {output.genomes:q} \
+            --missing {output.missing:q} --workers {threads} --rounds 4 --max-missing 0.05
         """
 
 # Preparation rule for the genome_qc
 
 rule fetch_sequence_reports:
+    # Same idea: batches of 500 into sequence_reports_work, per accession for a batch
+    # that fails; missing reports are listed and those assemblies fail QC.
     input:
-        f"{RUN_PROCESSED_DIR}/selected_accessions.txt"
+        code = "src/ibp/module2/robust_download.py",
+        accessions = f"{RUN_PROCESSED_DIR}/selected_accessions.txt"
     output:
-        package = DOWNLOAD_DIR + "/sequence_reports.zip",
-        reports = directory(DOWNLOAD_DIR + "/sequence_reports")
+        reports = directory(DOWNLOAD_DIR + "/sequence_reports"),
+        missing = f"{RUN_PROCESSED_DIR}/download_missing_reports.tsv"
+    params:
+        work = DOWNLOAD_DIR + "/sequence_reports_work"
     shell:
         """
-        # Download only sequence reports, using the same selected accessions.
-        for delay in 0 30 60; do
-            sleep "$delay"
-            if datasets download genome accession --inputfile {input:q} \
-                --include seq-report --filename {output.package:q}; then
-                break
-            fi
-            if [ "$delay" -eq 60 ]; then exit 1; fi
-        done
-
-        python -m zipfile -e {output.package:q} {output.reports:q}
-
-        # Require a nonempty report for every selected assembly.
-        while read -r accession; do
-            test -s {output.reports:q}/ncbi_dataset/data/"$accession"/sequence_report.jsonl
-        done < {input:q}
+        PYTHONPATH=src python -u -m ibp.module2.robust_download reports \
+            --accessions {input.accessions:q} --work {params.work:q} \
+            --out {output.reports:q} --missing {output.missing:q} --batch 500 --max-missing 0.05
         """
 
 
