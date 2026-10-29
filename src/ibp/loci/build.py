@@ -367,6 +367,28 @@ def process_species(module5_root, prepared_root, species, cohort, floor_bp, tole
     return summary, comps, calls, loci, families
 
 
+def _one_species(job):
+    """One species, cached on disk so an interrupted run resumes (min-20: ~200 species)."""
+    import pickle
+    import time
+    sp, module5_root, prepared_root, cohort, floor_bp, tolerance, max_failed, cache = job
+    path = cache / f"{sp}.pkl"
+    if path.is_file():
+        with open(path, "rb") as fh:
+            return sp, pickle.load(fh), 0.0, True
+    t0 = time.time()
+    if not (prepared_root / sp / cohort / "genomes.tsv").is_file():
+        res = ({"species_id": sp, "excluded": "no package"}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+               pd.DataFrame())
+    else:
+        res = process_species(module5_root, prepared_root, sp, cohort, floor_bp, tolerance, max_failed)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "wb") as fh:
+        pickle.dump(res, fh)
+    tmp.rename(path)
+    return sp, res, time.time() - t0, False
+
+
 def main():
     p = argparse.ArgumentParser(description="Build calls, loci and families for all species")
     p.add_argument("--module5-root", type=Path, required=True)
@@ -377,18 +399,31 @@ def main():
     p.add_argument("--tolerance-bp", type=int, default=5000)
     p.add_argument("--max-failed", type=float, default=0.20)
     p.add_argument("--only", nargs="*", help="species_id subset")
+    p.add_argument("--workers", type=int, default=1, help="species processed in parallel")
     p.add_argument("--out", type=Path, required=True)
     a = p.parse_args()
 
     species = pd.read_csv(a.species_table, sep="\t", dtype=str)
     ids = a.only or species["species_id"].tolist()
+    cache = a.out / "per_species"
+    cache.mkdir(parents=True, exist_ok=True)
+    jobs = [(sp, a.module5_root, a.prepared_root, a.cohort, a.floor_bp, a.tolerance_bp, a.max_failed, cache)
+            for sp in ids]
+    results = {}
+    if a.workers > 1:
+        import multiprocessing as mp
+        with mp.get_context("fork").Pool(a.workers) as pool:
+            for k, (sp, res, sec, cached) in enumerate(pool.imap_unordered(_one_species, jobs), 1):
+                results[sp] = res
+                print(f"[{k}/{len(jobs)}] {sp}: {'cached' if cached else f'{sec:.0f} s'}", flush=True)
+    else:
+        for k, job in enumerate(jobs, 1):
+            sp, res, sec, cached = _one_species(job)
+            results[sp] = res
+            print(f"[{k}/{len(jobs)}] {sp}: {'cached' if cached else f'{sec:.0f} s'}", flush=True)
     out = {k: [] for k in ["species", "comparisons", "calls", "loci", "families"]}
     for sp in ids:
-        if not (a.prepared_root / sp / a.cohort / "genomes.tsv").is_file():
-            out["species"].append({"species_id": sp, "excluded": "no package"})
-            continue
-        res = process_species(a.module5_root, a.prepared_root, sp, a.cohort,
-                              a.floor_bp, a.tolerance_bp, a.max_failed)
+        res = results[sp]
         out["species"].append(res[0])
         for key, df in zip(["comparisons", "calls", "loci", "families"], res[1:]):
             if len(df):

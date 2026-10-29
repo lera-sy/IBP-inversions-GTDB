@@ -12,7 +12,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
 #SBATCH --mem=64G
-#SBATCH --time=08:00:00
+#SBATCH --time=16:00:00
 #SBATCH --output=logs/analysis_%j.log
 
 source "$VSC_DATA/miniforge3/bin/activate"

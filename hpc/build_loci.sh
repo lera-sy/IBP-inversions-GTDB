@@ -7,4 +7,4 @@ set -euo pipefail
 COHORT=${COHORT:-selected_50_v1}
 if [ "$COHORT" = selected_50_v1 ]; then ROOT=$VSC_SCRATCH/IBP-main; SEL=data/processed
 else ROOT=$VSC_SCRATCH/IBP-main/runs/$COHORT; SEL=data/processed/runs/$COHORT; fi
-PYTHONPATH=src python -m ibp.loci.build --module5-root "$ROOT/module5" --prepared-root "$ROOT/prepared" --species-table "$SEL/species.tsv" --cohort "$COHORT" --floor-bp 6000 --tolerance-bp 5000 --max-failed 0.20 --out "results/loci/$COHORT"
+PYTHONPATH=src python -m ibp.loci.build --module5-root "$ROOT/module5" --prepared-root "$ROOT/prepared" --species-table "$SEL/species.tsv" --cohort "$COHORT" --floor-bp 6000 --tolerance-bp 5000 --max-failed 0.20 --workers "${SLURM_CPUS_PER_TASK:-1}" --out "results/loci/$COHORT"
