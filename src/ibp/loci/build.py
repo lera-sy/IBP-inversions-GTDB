@@ -343,7 +343,10 @@ def process_species(module5_root, prepared_root, species, cohort, floor_bp, tole
     # Only genomes where BOTH callers succeeded, so tiers mean the same everywhere.
     ok = comps[comps["query_circular"]].pivot_table(index="query_assembly", columns="caller",
                                                    values="status", aggfunc="first")
-    both = set(ok.index[(ok.get("leen") == "success") & (ok.get("syri") == "success")])
+    # A caller column can be absent (no circular query, or no results for that caller);
+    # comparing None gives a scalar False, which pandas rejects as an index.
+    ok = ok.reindex(columns=["leen", "syri"])
+    both = set(ok.index[((ok["leen"] == "success") & (ok["syri"] == "success")).to_numpy(dtype=bool)])
     summary["genomes_both_callers"] = len(both)
 
     raw = pd.concat(raws, ignore_index=True) if raws else pd.DataFrame()
@@ -377,11 +380,15 @@ def _one_species(job):
         with open(path, "rb") as fh:
             return sp, pickle.load(fh), 0.0, True
     t0 = time.time()
+    empty = (pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
     if not (prepared_root / sp / cohort / "genomes.tsv").is_file():
-        res = ({"species_id": sp, "excluded": "no package"}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
-               pd.DataFrame())
+        res = ({"species_id": sp, "excluded": "no package"}, *empty)
     else:
-        res = process_species(module5_root, prepared_root, sp, cohort, floor_bp, tolerance, max_failed)
+        try:
+            res = process_species(module5_root, prepared_root, sp, cohort, floor_bp, tolerance, max_failed)
+        except Exception as err:  # noqa: BLE001 - one bad species must not stop the run
+            res = ({"species_id": sp, "excluded": f"error: {type(err).__name__}: {err}"[:200]}, *empty)
+            return sp, res, time.time() - t0, False   # not cached: retried on the next run
     tmp = path.with_suffix(".tmp")
     with open(tmp, "wb") as fh:
         pickle.dump(res, fh)
