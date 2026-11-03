@@ -264,10 +264,8 @@ def fig1(core, exp, out):
 
 # ------------------------------------------------------------------ figure 2 / S1
 
-def fig2(d, out, title):
+def _pooled(ax, d, title, label, xlim):
     fam, sp = d.fam, d.sp
-    fig, axes = plt.subplots(1, 2, figsize=(2 * W + 0.3, 3.1), sharey=True)
-    ax = axes[0]
     ax.scatter(fam["x"], fam["y"], s=3, color=LIGHT, lw=0, zorder=2, label=f"Inversion family (n = {len(fam):,})")
     cap = sp.assign(x=np.log10(sp[GENOME] / 1e6), y=np.log10(sp["reference_length_bp"] / 2 / 1000))
     ax.scatter(cap["x"], cap["y"], marker="_", s=14, color=INK, lw=0.8, zorder=3,
@@ -277,42 +275,66 @@ def fig2(d, out, title):
     room = d.room("slope_all")[0]
     x0, x1 = g["x"].min(), g["x"].max()
     xs, ys = fit_line(g, main["slope"], x0, x1)
-    ax.plot(xs, ys, color=INK, lw=1.6, zorder=4, label=f"Fitted slope {main['slope']:.2f}")
+    ax.plot(xs, ys, color=INK, lw=1.6, zorder=4,
+            label=f"Fitted slope {main['slope']:.2f} [{main['ci_low']:.2f}, {main['ci_high']:.2f}]")
     xs, ys = fit_line(g, room, x0, x1)
     ax.plot(xs, ys, color=GREY, lw=1.1, ls=(0, (4, 2)), zorder=4, label=f"Room-alone null {room:.2f}")
     ax.set_ylim(np.log10(0.9), np.log10(6500))
-    ax.set_xlim(fam["x"].min() - 0.03, fam["x"].max() + 0.03)
+    ax.set_xlim(*xlim)
     log_axes(ax)
     ax.legend(loc="lower right", handlelength=1.6, borderaxespad=0.2, markerscale=1.5, frameon=True,
               facecolor="white", edgecolor="none", framealpha=0.92)
-    ax.set_title(f"All inversions, {title}", loc="left", fontsize=7, color=INK)
-    panel_label(ax, "a")
+    ax.set_title(title, loc="left", fontsize=7, color=INK)
+    panel_label(ax, label)
 
-    ax = axes[1]
+
+def _split(ax, d, title, label, xlim):
+    fam = d.fam
     for cls in ["spanning", "local"]:
         ev = fam[fam["position_class"] == cls]
         g = species_means(ev)
         ax.scatter(g["x"], g["y"], s=3 + 1.2 * g["n"], color=COL[cls], alpha=0.75, edgecolors="white", lw=0.3,
                    zorder=3)
         r = d.rob_row("as reported (terminus at half)", cls)
-        room, lo, hi = d.room(f"slope_{cls}")
+        room = d.room(f"slope_{cls}")[0]
         x0, x1 = g["x"].min(), g["x"].max()
         xs, ys = fit_line(g, r["slope"], x0, x1)
         name = "Spanning" if cls == "spanning" else "Local"
         ax.plot(xs, ys, color=COL[cls], lw=1.8, zorder=4, solid_capstyle="round",
-                label=f"{name} {r['slope']:+.2f} [{r['ci_low']:.2f}, {r['ci_high']:.2f}]")
+                label=f"{name} {r['slope']:+.2f} [{r['ci_low']:.2f}, {r['ci_high']:.2f}]".replace("-", "\u2212"))
         xs, ys = fit_line(g, room, x0, x1)
         ax.plot(xs, ys, color=COL[cls], lw=0.9, ls=(0, (4, 2)), zorder=4, label=f"{name}, room alone {room:+.2f}")
     ax.set_ylim(np.log10(0.9), np.log10(6500))
-    ax.set_xlim(fam["x"].min() - 0.03, fam["x"].max() + 0.03)
+    ax.set_xlim(*xlim)
     log_axes(ax, ylabel=None)
-    ax.tick_params(labelleft=True)
     ax.legend(loc="lower right", ncol=1, handlelength=1.6, borderaxespad=0.2, frameon=True, facecolor="white",
               edgecolor="none", framealpha=0.92)
-    ax.set_title("Split by position: mean size per species (circle area = families)", loc="left", fontsize=7,
-                 color=INK)
-    panel_label(ax, "b", x=-0.1)
+    ax.set_title(title, loc="left", fontsize=7, color=INK)
+    panel_label(ax, label, x=-0.1)
+
+
+def fig2(d, out, title):
+    """One dataset, two panels side by side."""
+    xlim = (d.fam["x"].min() - 0.03, d.fam["x"].max() + 0.03)
+    fig, axes = plt.subplots(1, 2, figsize=(2 * W + 0.3, 3.1), sharey=True)
+    _pooled(axes[0], d, f"All inversions, {title}", "a", xlim)
+    _split(axes[1], d, "Split by position: mean size per species (circle area = families)", "b", xlim)
+    axes[1].tick_params(labelleft=True)
     fig.tight_layout(w_pad=1.6)
+    fig.savefig(out, dpi=600)
+    plt.close(fig)
+
+
+def fig2_both(core, exp, out):
+    """Core (a, b) above expanded (c, d), same axes so the datasets can be compared directly."""
+    lo = min(core.fam["x"].min(), exp.fam["x"].min()) - 0.03
+    hi = max(core.fam["x"].max(), exp.fam["x"].max()) + 0.03
+    fig, axes = plt.subplots(2, 2, figsize=(2 * W + 0.3, 6.0), sharey=True)
+    for row, (d, name, (la, lb)) in enumerate([(core, "Core dataset", "ab"), (exp, "Expanded dataset", "cd")]):
+        _pooled(axes[row, 0], d, f"{name}: all inversions", la, (lo, hi))
+        _split(axes[row, 1], d, f"{name}: spanning vs local, mean per species", lb, (lo, hi))
+        axes[row, 1].tick_params(labelleft=True)
+    fig.tight_layout(w_pad=1.6, h_pad=1.4)
     fig.savefig(out, dpi=600)
     plt.close(fig)
 
@@ -513,6 +535,7 @@ def main():
     fig1(core, exp, a.out / "fig1_design.png")
     fig2(core, a.out / "fig2_core.png", "core dataset")
     fig2(exp, a.out / "figS1_expanded.png", "expanded dataset")
+    fig2_both(core, exp, a.out / "fig2_both.png")
     fig3(core, exp, a.out / "fig3_slopes.png")
     fig4(core, exp, a.out / "fig4_position.png", numbers)
     print(f"Written to {a.out}")
